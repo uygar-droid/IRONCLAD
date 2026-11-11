@@ -60,6 +60,10 @@ jobs:
           ninja --version
           if [ "$RUNNER_OS" = "Windows" ]; then cl 2>&1 | head -1 || true; else xcodebuild -version; clang --version | head -1; fi
 
+      # Submodules must exist before the cache below restores files *inside* iPlug2.
+      - name: Fetch pinned submodules
+        run: git submodule update --init ThirdParty/iPlug2 ThirdParty/NeuralAmpModelerCore ThirdParty/doctest
+
       - name: Cache VST3 SDK and validator
         uses: actions/cache@v4
         with:
