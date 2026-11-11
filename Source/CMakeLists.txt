@@ -24,3 +24,9 @@ target_link_libraries(ironclad_engine
   PRIVATE ironclad_warnings)
 
 set_target_properties(ironclad_engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(WIN32)
+  # WDL (pulled in by AudioDSPTools' resampler) includes <windows.h>; keep its min/max
+  # macros from breaking std::min / std::max.
+  target_compile_definitions(ironclad_engine PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()

@@ -12,8 +12,8 @@ separately, with the evidence used.
 | Component | Licence | Evidence | Obligations for a closed-source commercial product |
 |---|---|---|---|
 | NeuralAmpModelerCore | MIT (© 2023 Steven Atkinson) | `LICENSE` in repo | Include copyright + licence text in distributed notices. |
-| NeuralAmpModelerPlugin (only code we port) | MIT (© 2022 Steven Atkinson) | `LICENSE` in repo | Same; mark ported files with origin. Do **not** reuse its branding, images or fonts as IRONCLAD identity. |
-| AudioDSPTools | MIT (© 2023 Steven Atkinson) | `LICENSE` in repo | Notice. |
+| NeuralAmpModelerPlugin (only code we port) | MIT (© 2022 Steven Atkinson) | `LICENSE` in repo | Same; ported files are marked (`Source/Amp/ResamplingModel.h` from `ResamplingNAM.h`). Do **not** reuse its branding, images or fonts as IRONCLAD identity. |
+| AudioDSPTools | MIT (© 2023 Steven Atkinson); its `ResamplingContainer`/`LanczosResampler` derive from iPlug2 (zlib-style, notice reproduced in the header) and bundle WDL (zlib-like) | `LICENSE` in repo, file headers | Notice. |
 | Eigen | MPL-2.0 (primarily; some files BSD/Apache/other) | `COPYING.README`, `COPYING.MPL2` at pinned commit | File-level copyleft: unmodified use only needs the notice + telling users where the Eigen source is available. If we **modify** Eigen files, those files' changes must be published under MPL-2.0. Define `EIGEN_MPL2_ONLY` so no LGPL-only code is pulled in. |
 | nlohmann/json | MIT | header licence block | Notice. |
 | iPlug2 | zlib-style | `LICENSE.txt` | Don't misrepresent origin; mark altered sources; keep notice in source distributions. Acknowledgement in docs appreciated, not required. |

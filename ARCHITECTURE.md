@@ -103,7 +103,7 @@ This is the decision that most changes the product's shape; it is listed again i
 |  ENGINE  (static lib `ironclad_engine`, pure C++20,          |
 |           no iPlug2 headers — unit-testable without a host)  |
 |  Audio/  Engine, SignalChain, ProcessContext, buffers        |
-|  NAM/    AmpSlot (wraps nam::DSP + resampler), loader        |
+|  Amp/    AmpModel, AmpStage, CaptureLoader (NAM capture slot)  |
 |  Cabinet/ IR loader, resampler, partitioned convolver, dual  |
 |  Effects/ one folder per effect, common IEffect interface    |
 |  Parameters/ ParamSpec registry, stable IDs, smoothing       |
@@ -148,7 +148,11 @@ Main/Loader <--retireQueue (SPSC, lock-free)-- destroys `old` off the audio thre
 
 - Ownership is single-owner raw transfer through the queues (no `shared_ptr` refcount
   decrements on the audio thread). Queues are fixed-capacity, pre-allocated at construction.
-- During the crossfade both models run (≈2× amp CPU for ~20–50 ms) so switching is click-free.
+- During the crossfade both models run (≈2× amp CPU for 25 ms) so switching is click-free.
+- Sample-rate changes: `Engine::prepare` takes the loader lock, bumps a *generation* number and
+  re-prepares the live capture and any capture waiting in the ready queue. A capture finished
+  by the loader for an older generation is re-prepared before it is queued, so the audio thread
+  never receives a capture prepared for the wrong rate. (Implemented in `Source/Amp/`.)
 - If loading fails, nothing is pushed: **the active capture keeps playing** (spec §6) and the
   error is reported to the UI through a status FIFO.
 - `OnReset()` (sample-rate / max-block change) is handled by re-preparing all live resources on

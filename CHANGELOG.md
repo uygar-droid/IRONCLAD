@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased] — 0.2.0 (Milestone 2: NAM integration)
+
+### Added
+- Load Neural Amp Modeler `.nam` captures (NeuralAmpModelerCore) on a background thread;
+  switch captures during playback with a 25 ms equal-power crossfade.
+- Automatic resampling when the host rate differs from the capture's rate; plugin latency is
+  reported to the host.
+- Capture metadata display; clear error messages for missing, damaged, wrong-type and
+  unsupported files (the current capture keeps playing).
+- Parameters: Amp On, Amp Input, Amp Output, Normalize (−18 dB loudness target).
+- Project state now stores the capture path (format "IRCL" v1). Projects saved with 0.1.x
+  still open.
+
+### Changed
+- Engine source folder for the amp stage is `Source/Amp/` (avoids clashing with NAM Core's
+  `NAM/` include path).
+
 ## [Unreleased] — 0.1.0 (Milestone 1: foundation)
 
 ### Added

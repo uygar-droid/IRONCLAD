@@ -13,7 +13,7 @@ Last updated: 2026-11-12.
 |---|---|---|---|
 | 0 | Planning, research, licensing | ✅ approved 2026-11-12 | Architecture docs |
 | 1 | Foundation | ✅ CI + REAPER (macOS) verified; Windows host test pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
-| 2 | NAM integration | ⬜ | VST3 that loads and plays `.nam` captures |
+| 2 | NAM integration | 🟠 implemented; CI + REAPER check pending | VST3 that loads and plays `.nam` captures |
 | 3 | Cabinet engine | ⬜ | + dual-IR zero-latency cabinet |
 | 4 | Core effects | ⬜ | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
 | 5 | Presets, state, automation, MIDI | ⬜ | Reliable DAW-integrated plugin |
@@ -54,12 +54,24 @@ Acceptance criteria (shown with real output):
 - [ ] Same on Windows (needs a Windows machine).
 
 ## Milestone 2 — NAM integration
-Loader thread with command/ready/retire queues; capture browser (folder scan, metadata);
-user-facing error messages; crossfaded switching; resampling for non-48 kHz hosts with reported
-latency; input calibration and output normalisation; stress test (switch every block, zero
-allocations); CPU benchmark per architecture; float vs double decision.
-Real-host gate: load several community captures in REAPER, play guitar/test signal, switch
-captures during playback without clicks.
+
+| Task | Status |
+|---|---|
+| Background loader thread; requests coalesce (last wins) | ✅ unit-tested |
+| Safe hand-over: SPSC ready/retire queues, old capture destroyed off the audio thread | ✅ unit-tested (zero allocations/frees on the audio thread during 456 switches) |
+| Click-free switching: 25 ms equal-power crossfade | ✅ unit-tested (no discontinuity above steady-state level) |
+| Resampling for non-native host rates (44.1–192 kHz), latency reported to host | ✅ unit-tested (level within 0.005 dB of native) |
+| Sample-rate / block-size change while a capture is active or loading | ✅ unit-tested |
+| Validation + user-facing errors (missing, damaged, wrong type, unknown architecture); active capture preserved on failure | ✅ unit-tested |
+| Metadata (name, architecture, rate, gear, tone type, modeled by) | ✅ unit-tested |
+| Output normalisation to −18 dB loudness (when the capture provides loudness) | ✅ unit-tested |
+| Gain staging params: Amp On, Amp Input, Amp Output, Normalize | ✅ engine-tested |
+| Plugin: LOAD CAPTURE / CLEAR, info + error display, capture path saved in the project | 🟡 needs CI build + REAPER check |
+| Input calibration (interface dBu ↔ capture `input_level_dbu`) | ⬜ moved to M5 (needs a per-user setting) |
+| Capture browser (folder library view) | ⬜ moved to M6 (part of the final UI); M2 uses the OS file dialog |
+
+Real-host gate: load several community captures in REAPER, play guitar, switch captures during
+playback without clicks, save/reopen the project.
 
 ## Milestone 3 — Cabinet
 WAV parser tests (16/24/32-int, 32-float, mono/stereo, corrupt files); r8brain IR resampling;

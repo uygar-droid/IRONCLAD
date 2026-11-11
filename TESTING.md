@@ -14,6 +14,8 @@ machine/runner, date and commit.
 | Engine | Gain change is smoothed (bounded per-sample delta) and settles exactly — 6 sample rates × blocks {1, 64, 512, random incl. > maxBlock} | M1 |
 | Real-time safety | **Zero heap allocations/frees inside `Engine::process()`** (global operator new/delete instrumented); tracker self-test | M1 |
 | Utilities | SPSC queue FIFO/capacity, move-only payloads, no allocation, 1,000,000 items across two threads | M1 |
+| Amp (M2) | Background load + metadata; engine output equals NAM Core's own output (< 1e-9); all host rates 44.1–192 kHz with resampling (level within 1 dB); damaged / missing / non-.nam / unknown-architecture files → error, previous capture keeps playing; missing file kept in state; clear → dry; crossfade continuity; Amp Off → dry; request coalescing; SR/block change during load and while active | M2 |
+| Amp (M2) | **Stress: capture switch every 3 ms for 1.5 s at 48 and 44.1 kHz — 0 allocations / 0 frees on the audio thread** (≈450 switches each) | M2 |
 | NAM Core | Loads example WaveNet (blocks 64/256/1024) and LSTM captures, output finite and non-silent; missing and malformed files throw (no crash) | M1 |
 
 ## 2. Plugin validation
