@@ -56,7 +56,7 @@ single-amp plugin, but its structure does not meet IRONCLAD's real-time requirem
 | `_ApplyDSPStaging()` runs inside `ProcessBlock` and does `mModel = std::move(mStagedModel)` | The **previous model is destroyed on the audio thread** (deallocation, potentially large). Spec §4 forbids this. |
 | `mStagedModel` is a plain `std::unique_ptr` written by `_StageModel()` (UI thread) and read in `ProcessBlock` (audio thread) | Unsynchronised cross-thread access to the same pointer — a data race. |
 | `_StageModel()` calls `nam::get_dsp()` + `Reset()` synchronously from the UI message | Large captures block the UI thread while loading. Spec asks for background loading. |
-| `_PrepareBuffers()` calls `std::vector::resize` from `ProcessBlock` | Allocation on the audio thread whenever block size grows. |
+| `_PrepareBuffers()` calls `std::vector::resize` from `ProcessBlock` on every block-size change, and `new[]` (via `_PrepareIOPointers`) on channel-count change | Allocation on the audio thread whenever the block grows or the channel layout changes — common with variable-block hosts. |
 | One monolithic `NeuralAmpModeler` class with an index-based parameter enum | Hard to extend to a modular chain of ~40 effects with re-routing. |
 | Depends on a **fork** `sdatkinson/iPlug2` (pinned `de5a4fb`) | We want upstream iPlug2 for long-term maintenance. |
 
