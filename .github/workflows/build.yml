@@ -84,7 +84,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           lipo -info build/${{ matrix.preset }}/out/IRONCLAD.vst3/Contents/MacOS/IRONCLAD
-          lipo -verify_arch build/${{ matrix.preset }}/out/IRONCLAD.vst3/Contents/MacOS/IRONCLAD arm64 x86_64
+          lipo build/${{ matrix.preset }}/out/IRONCLAD.vst3/Contents/MacOS/IRONCLAD -verify_arch arm64 x86_64
 
       - name: Ad-hoc code signature (macOS)
         if: runner.os == 'macOS'
