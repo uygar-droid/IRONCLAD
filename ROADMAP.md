@@ -12,7 +12,7 @@ Last updated: 2026-11-12.
 | # | Milestone | Status | Deliverable |
 |---|---|---|---|
 | 0 | Planning, research, licensing | ✅ approved 2026-11-12 | Architecture docs |
-| 1 | Foundation | 🟡 built + validated in CI; real-host check pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
+| 1 | Foundation | ✅ CI + REAPER (macOS) verified; Windows host test pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
 | 2 | NAM integration | ⬜ | VST3 that loads and plays `.nam` captures |
 | 3 | Cabinet engine | ⬜ | + dual-IR zero-latency cabinet |
 | 4 | Core effects | ⬜ | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
@@ -44,13 +44,14 @@ framework-free engine with its first passing tests.
 | Scripts: bootstrap, build, validate (PowerShell + bash) | ✅ |
 | GitHub Actions: Windows + macOS build, tests, validator, artifacts | ✅ |
 | **CI actually run, logs reviewed** | ✅ run 43102977856 (see TESTING.md) |
-| Real-host smoke test (REAPER, Windows) | ⬜ after first CI artifact |
+| Real-host smoke test (REAPER) | ✅ macOS (user, 2026-11-12) · ⬜ Windows |
 
 Acceptance criteria (shown with real output):
 - [x] CI green on Windows and macOS runners.
 - [x] Steinberg `validator` passes on both VST3 builds (47/47 each).
 - [x] Engine + NAM Core tests pass on both runners.
-- [ ] VST3 from CI loads in REAPER on Windows; audio passes; gain knobs work and automate.
+- [x] VST3 from CI loads in REAPER (macOS); audio passes; gain knobs work, automate and restore with the project.
+- [ ] Same on Windows (needs a Windows machine).
 
 ## Milestone 2 — NAM integration
 Loader thread with command/ready/retire queues; capture browser (folder scan, metadata);

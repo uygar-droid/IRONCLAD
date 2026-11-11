@@ -29,6 +29,10 @@ IRONCLAD is a VST3 plugin for **Windows 10/11 (64-bit)** and **macOS 13 or newer
    ```
    xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/IRONCLAD.vst3
    ```
+   If you installed into the system folder `/Library/Audio/Plug-Ins/VST3/` instead, use
+   `sudo xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/IRONCLAD.vst3`
+   (paste the whole line; macOS asks for your password).
+   If REAPER scanned before you did this, use *Clear cache/re-scan*, not just *Re-scan*.
 4. Start your DAW and rescan plugins (REAPER: Preferences → Plug-ins → VST → *Re-scan*).
 
 ## Using it with a guitar

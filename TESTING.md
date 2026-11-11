@@ -56,6 +56,15 @@ Not a product target; used only to exercise platform-independent engine code bef
 Earlier runs of the same day found and fixed two CI-script defects (wrong `lipo` argument
 order; VST3-SDK cache restored before submodules). No product-code defect was found by CI.
 
-### Real-host (REAPER) tests
-Not yet executed. Requires a Windows/macOS machine with REAPER (the user's machine, or this
-session linked to it through the Claude desktop app).
+### 2026-11-12 — Real host: REAPER on the user's Mac (macOS), build from run 43103645908
+Executed by the user with a real guitar input:
+- ✅ Plugin appears in REAPER's FX list and opens (after removing the download quarantine flag).
+- ✅ Guitar audio passes through.
+- ✅ Input and Output knobs change the level; knob movements are written as automation.
+- ✅ Project saved, closed and reopened: knob values restored.
+
+Install issue observed: the first scan did not list the plugin because macOS had quarantined the
+downloaded bundle, and the bundle was in the system folder `/Library/...`, where the `xattr`
+command needs `sudo`. INSTALL.md updated accordingly.
+
+Windows real-host test: not yet executed (no Windows machine available so far).
