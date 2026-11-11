@@ -1,0 +1,62 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "IPLUG2_DISABLE_DEPRECATION_WARNINGS": "ON"
+      }
+    },
+    {
+      "name": "windows-ninja-release",
+      "displayName": "Windows x64 · Ninja · Release (CI; run from a VS x64 Developer prompt)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "IPLUG_DEPLOY_PLUGINS": "OFF" }
+    },
+    {
+      "name": "windows-vs2022",
+      "displayName": "Windows x64 · Visual Studio 2022 (local development; installs to the user VST3 folder)",
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "architecture": { "value": "x64", "strategy": "set" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "macos-ninja-release",
+      "displayName": "macOS universal (arm64+x86_64) · Ninja · Release (CI)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64",
+        "IPLUG_DEPLOY_PLUGINS": "OFF"
+      }
+    },
+    {
+      "name": "macos-xcode",
+      "displayName": "macOS universal · Xcode (local development; installs to ~/Library/Audio/Plug-Ins/VST3)",
+      "inherits": "base",
+      "generator": "Xcode",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-ninja-release", "configurePreset": "windows-ninja-release" },
+    { "name": "windows-vs2022-release", "configurePreset": "windows-vs2022", "configuration": "Release" },
+    { "name": "macos-ninja-release", "configurePreset": "macos-ninja-release" },
+    { "name": "macos-xcode-release", "configurePreset": "macos-xcode", "configuration": "Release" }
+  ],
+  "testPresets": [
+    { "name": "windows-ninja-release", "configurePreset": "windows-ninja-release", "output": { "outputOnFailure": true } },
+    { "name": "windows-vs2022-release", "configurePreset": "windows-vs2022", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "macos-ninja-release", "configurePreset": "macos-ninja-release", "output": { "outputOnFailure": true } },
+    { "name": "macos-xcode-release", "configurePreset": "macos-xcode", "configuration": "Release", "output": { "outputOnFailure": true } }
+  ]
+}

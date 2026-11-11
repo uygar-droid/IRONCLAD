@@ -1,0 +1,4 @@
+# Released parameter IDs. APPEND ONLY. Never edit or remove a line.
+# Format: <index> <stable id>
+0 global.input_db
+1 global.output_db

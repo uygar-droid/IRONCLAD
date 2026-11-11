@@ -1,0 +1,5 @@
+// Windows resources embedded in IRONCLAD.vst3 (fonts, later images).
+// iPlug2 locates them with FindResource(name, type) at runtime.
+#include "..\config.h"
+
+ROBOTO_FN TTF ROBOTO_FN

@@ -20,11 +20,10 @@ separately, with the evidence used.
 | └ Cockos WDL | zlib-like | iPlug2 `LICENSE.txt` | Same style as zlib. |
 | └ NanoVG / NanoSVG | zlib | iPlug2 `LICENSE.txt` | — |
 | └ MetalNanoVG | MIT | iPlug2 `LICENSE.txt` | Notice. |
-| └ RtAudio / RtMidi (standalone only) | MIT-style | iPlug2 `LICENSE.txt` | Notice. |
 | └ Skia (if chosen) | BSD-3-Clause | iPlug2 `LICENSE.txt` mentions BSD | Notice; no endorsement. |
 | └ iPlug2 WebView extra (only if used) | MIT | iPlug2 `LICENSE.txt` | Notice. |
 | VST3 SDK | **MIT since VST 3.8** (Oct 2025); GPLv3/proprietary options discontinued | Steinberg VST 3 Licensing page and 3.8 release notes | Notice. Using the "VST" name/logo is optional; if used, Steinberg's trademark usage guidelines apply. VST2 is **not** covered — IRONCLAD will not build VST2. |
-| Apple AU (AudioToolbox) | Apple SDK terms (system frameworks) | Xcode licence | Normal macOS development terms. "Audio Units" logo use has its own Apple guidelines — only use if we adopt them. |
+| Apple system frameworks (Cocoa, Metal) | Apple SDK terms | Xcode licence | Normal macOS development terms. |
 | PFFFT (planned, M3) | FFTPACK licence (BSD-like) + Pommier's changes under same terms | `pffft.c` header | Notice in docs; no use of NCAR/UCAR names for endorsement. Re-verify at pin time. |
 | r8brain-free-src (planned, M3) | MIT; bundles Ooura FFT and PFFFT | repo README | Notices for r8brain and its bundled code. Re-verify at pin time. |
 | FFTConvolver (reference/test) | MIT in current version (© 2017 HiFi-LoFi) | header of `FFTConvolver.h` at `f2cdeb0` | Notice if code is adopted. ⚠ Older copies (2012) circulating in other projects are **GPLv3** — use only the current upstream version. |
@@ -56,7 +55,7 @@ GPL/AGPL code in the product.
 |---|---|---|
 | Amp/pedal/cab artwork | To be created in Blender (M6) | 100 % original. No Neural DSP, Mesa/Boogie, Marshall or other brand logos, panel layouts, knob designs or trade dress. Reference photos are used for realism study only, never traced or textured into renders. |
 | HDRI / textures | TBD | Only CC0 (e.g. Poly Haven) or purchased with a licence allowing redistribution inside software. Record source URL + licence per file in `Assets/ASSET_SOURCES.md`. |
-| Fonts | TBD | Only SIL OFL-1.1 or Apache-2.0 fonts embedded; include licence files. The NAM plugin's fonts (Michroma, Roboto) are **not** reused as IRONCLAD's typographic identity. |
+| Fonts | Roboto Regular 1.100141 (© Google 2012, **Apache-2.0**, licence stated in the font's name table) — *temporary M1 editor only* | Only SIL OFL-1.1 or Apache-2.0 fonts embedded; include licence files. The NAM plugin's fonts (Michroma, Roboto) are **not** reused as IRONCLAD's typographic identity. |
 | Factory NAM captures | None yet | Captures are copyrighted works of their creators (often published with their own terms on sites such as TONE3000). Factory content must be **our own captures** or captures with a **written licence permitting redistribution in a commercial product**. User-loaded captures are the user's responsibility; IRONCLAD never uploads or redistributes them. |
 | Factory IRs | None yet | Same rule as captures. Many commercial IR packs forbid redistribution. |
 | Example models from NAM Core (`example_models/*.nam`) | MIT repo | Used only in tests; not shipped as factory content. |

@@ -3,120 +3,91 @@
 Status legend: ✅ implemented & tested · 🟡 implemented, not fully tested · 🟠 partial ·
 ⬜ planned · ⛔ blocked
 
-Last updated: 2026-11-11 (Session 1 — planning only, **no code written yet**).
+**Final goal:** a finished, genuinely functional IRONCLAD **VST3** that installs and works in a
+real DAW on **Windows x64** and **macOS (Apple Silicon + Intel)**, delivered as compiled binaries
+with source, build scripts, documentation and an installation guide. Linux and AU are out of scope.
+
+Last updated: 2026-11-12.
 
 | # | Milestone | Status | Deliverable |
 |---|---|---|---|
-| 0 | Session 1: environment, research, licensing, architecture docs | ✅ docs written · awaiting approval | ARCHITECTURE / ROADMAP / DEPENDENCIES / LICENSES |
-| 1 | Foundation | ⬜ | Loadable empty VST3 (+AU, standalone) built by CI on Win + macOS |
-| 2 | NAM integration | ⬜ | Functional NAM amp plugin |
-| 3 | Cabinet engine | ⬜ | NAM + dual-IR cabinet |
-| 4 | Core effects | ⬜ | Usable guitar effects platform |
-| 5 | Presets & state | ⬜ | Reliable DAW-integrated plugin |
-| 6 | Graphical interface | ⬜ ⛔ Blender not available here | Distinctive IRONCLAD UI |
-| 7 | Advanced features | ⬜ | Routing, more effects, optimisation |
-| 8 | Release preparation | ⬜ ⛔ needs signing certificates + Mac | Signed installers, validated builds |
+| 0 | Planning, research, licensing | ✅ approved 2026-11-12 | Architecture docs |
+| 1 | Foundation | 🟠 in progress | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
+| 2 | NAM integration | ⬜ | VST3 that loads and plays `.nam` captures |
+| 3 | Cabinet engine | ⬜ | + dual-IR zero-latency cabinet |
+| 4 | Core effects | ⬜ | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
+| 5 | Presets, state, automation, MIDI | ⬜ | Reliable DAW-integrated plugin |
+| 6 | Graphical interface | ⬜ ⛔ Blender not available in this container | The photorealistic IRONCLAD UI |
+| 7 | Advanced features | ⬜ | Remaining effects, routing, optimisation |
+| 8 | Release | ⬜ | **Release VST3 binaries for Windows and macOS**, installation guide, release notes |
+
+Every milestone ends with: build of both targets in CI → automated tests → VST3 validator →
+report of what was actually run. Milestones 2–8 additionally require a **real-host check in
+REAPER** on Windows (and on macOS whenever a Mac is available) before they are marked ✅.
 
 ---
 
-## Milestone 1 — Foundation (detailed plan)
+## Milestone 1 — Foundation
 
-Goal: a repository that builds an **empty, loadable IRONCLAD plugin** (audio passthrough with
-input/output gain, smoothed) as VST3 on Windows and VST3+AU on macOS, plus the framework-free
-engine library with its first passing tests — all reproducible from scripts and CI.
+Goal: a repository that builds an IRONCLAD VST3 (audio passthrough with smoothed input/output
+gain) natively on Windows and macOS CI runners, passes the Steinberg validator, and has the
+framework-free engine with its first passing tests.
 
-### Tasks
+| Task | Status |
+|---|---|
+| Git repository, pinned submodules (iPlug2, NAM Core, doctest) | see CHANGELOG |
+| Top-level CMake (C++20, Windows/macOS only for the plugin) + CMakePresets | see CHANGELOG |
+| Engine skeleton: `Engine`, `SmoothedValue`, `SpscQueue`, denormal guard, `ParamRegistry` | see CHANGELOG |
+| NAM Core compiled as an IRONCLAD library target (`ironclad_nam`) | see CHANGELOG |
+| Tests: gain/smoothing, sample-rate × block-size × channel matrix, SPSC, allocation guard, parameter-ID snapshot, NAM model load + process smoke test | see CHANGELOG |
+| VST3 shell (`Source/Plugin`), temporary minimal UI (replaced in M6) | see CHANGELOG |
+| Scripts: bootstrap, build, validate (PowerShell + bash) | see CHANGELOG |
+| GitHub Actions: Windows + macOS build, tests, validator, artifacts | see CHANGELOG |
+| **CI actually run, logs reviewed** | ⛔ needs a GitHub repository connected to this session |
+| Real-host smoke test (REAPER, Windows) | ⬜ after first CI artifact |
 
-1. **Repository**
-   - `git init`, `.gitignore`, `.gitattributes` (LF, LFS rules for `Assets/**/*.png|*.blend`).
-   - Submodules, pinned:
-     - `ThirdParty/iPlug2` → upstream `iPlug2/iPlug2`
-     - `ThirdParty/NeuralAmpModelerCore` → `sdatkinson/NeuralAmpModelerCore` (recursive: Eigen, AudioDSPTools)
-     - `ThirdParty/VST3_SDK` → fetched by iPlug2's `download-vst3-sdk.sh` at a pinned **v3.8.x** tag (MIT)
-     - `ThirdParty/doctest` (tests only)
-   - `README.md`, `CHANGELOG.md`, `TESTING.md` created.
-2. **CMake**
-   - Top-level `CMakeLists.txt`, C++20, options: `IRONCLAD_BUILD_PLUGIN` (default ON on
-     Win/macOS, OFF on Linux), `IRONCLAD_BUILD_TESTS`.
-   - Target `ironclad_engine` (static lib, no framework headers).
-   - Target `IRONCLAD` via `iplug_add_plugin(... FORMATS APP VST3 AU)`.
-   - `CMakePresets.json`: `win-vs2022-x64`, `mac-xcode-universal`, `linux-engine-tests`.
-3. **Plugin shell** (`Source/Plugin/`)
-   - `config.h`: name IRONCLAD, unique 4-char plugin ID and manufacturer ID (registered/checked
-     against collisions), channel I/O `1-1 1-2 2-2`, latency 0.
-   - Parameters: `global.input_db`, `global.output_db` (stable IDs, index 0 and 1).
-   - `ProcessBlock` → `Engine::process()` (gain + smoothing only).
-   - Minimal placeholder IGraphics UI clearly marked as temporary (two knobs, version label).
-4. **Engine skeleton** (`Source/Audio`, `Source/Parameters`, `Source/Utilities`)
-   - `Engine::prepare(sampleRate, maxBlock, channels)`, `Engine::process()`.
-   - `SmoothedValue`, `SpscQueue<T, N>` (fixed capacity), FTZ/DAZ guard.
-   - `ParamRegistry` + ID snapshot test.
-5. **Tests** (`Tests/`, doctest, run on all 3 OSes)
-   - Gain/smoothing correctness (no step larger than ε per sample at every block size).
-   - All sample rates × block sizes (incl. 1 and random variable sizes) × mono/stereo.
-   - Allocation guard: zero allocations inside `process()`.
-   - Parameter-ID snapshot.
-   - **NAM Core's own test suite** (`run_tests`) built and run, to prove the dependency builds
-     with our toolchain flags.
-6. **Scripts** (`Scripts/`)
-   - `bootstrap.ps1` / `bootstrap.sh`: submodules + VST3 SDK + validator build.
-   - `build.ps1` / `build.sh`: configure + build a preset.
-   - `validate.ps1` / `validate.sh`: run Steinberg `validator` on the built `.vst3`
-     (and `auval -v aufx Ircl <Mfr>` on macOS).
-7. **CI** (`.github/workflows/build.yml`)
-   - `ubuntu-latest`: engine + tests.
-   - `windows-latest`: VS2022 x64 → VST3 + APP, run tests + VST3 validator, upload artifacts.
-   - `macos-latest` (Apple Silicon): Xcode universal (arm64;x86_64) → VST3 + AU + APP, run
-     tests, VST3 validator, `auval` (ad-hoc signed).
-8. **Docs**: update ROADMAP, CHANGELOG, TESTING (QA checklist v1), DEPENDENCIES pins.
+Acceptance criteria (shown with real output):
+- [ ] CI green on Windows and macOS runners.
+- [ ] Steinberg `validator` passes on both VST3 builds.
+- [ ] Engine + NAM Core tests pass on both runners.
+- [ ] VST3 from CI loads in REAPER on Windows; audio passes; gain knobs work and automate.
 
-### Acceptance criteria (all must be shown with real output, not asserted)
+## Milestone 2 — NAM integration
+Loader thread with command/ready/retire queues; capture browser (folder scan, metadata);
+user-facing error messages; crossfaded switching; resampling for non-48 kHz hosts with reported
+latency; input calibration and output normalisation; stress test (switch every block, zero
+allocations); CPU benchmark per architecture; float vs double decision.
+Real-host gate: load several community captures in REAPER, play guitar/test signal, switch
+captures during playback without clicks.
 
-- [ ] CI green on all three runners; logs linked in the milestone report.
-- [ ] `validator` passes on Windows and macOS VST3 builds.
-- [ ] `auval` passes on macOS AU build.
-- [ ] You (Windows machine) load the VST3 in at least one DAW and hear passthrough audio; gain
-      knobs work and automate.
-- [ ] Engine tests and NAM Core tests pass on Linux, Windows, macOS.
+## Milestone 3 — Cabinet
+WAV parser tests (16/24/32-int, 32-float, mono/stereo, corrupt files); r8brain IR resampling;
+zero-latency partitioned convolver verified against direct convolution (error < −120 dBFS);
+dual IR with level/pan/polarity; HPF/LPF; waveform thumbnail.
 
-### Known risks for M1
+## Milestone 4 — Core effects
+Noise gate, compressor, overdrive, distortion, fuzz, 3-band + parametric EQ, chorus,
+digital/analog delay (host sync, tap tempo), room/hall/plate reverb, wah. Each with impulse/
+step/sine tests, extreme-setting stability tests and a bypass click test.
 
-- iPlug2's CMake path is newer than its VS/Xcode project files — if a format target fails we
-  fix it locally or fall back to the generated project files, and document which.
-- GitLab (Eigen's home) was unreachable from this development container; CI runners and your PC
-  normally can reach it. A hash-pinned mirror is the fallback (see DEPENDENCIES.md).
-- The plugin adapter cannot be compiled in this Linux container (iPlug2 has no Linux target);
-  only CI and your machine can verify it.
+## Milestone 5 — Presets, state, automation, MIDI
+JSON schema v1 + migrations, missing-file resolver, factory/user libraries, categories,
+favourites, rename/duplicate/delete, undo/redo, MIDI learn (CC → parameter, expression for
+wah/volume, tap tempo). Real-host gate: automation lanes, project save → close → reopen
+restores everything in REAPER.
 
----
+## Milestone 6 — Graphical interface
+Blender pipeline (render scripts, filmstrip packer), photorealistic amp head, STOMP / AMP / CAB /
+POST FX pages, preset browser, meters, tuner, 100–200 % scaling. Every control functional and
+host-synchronised. Requires Blender on a workstation.
 
-## Milestones 2–8 (summary; refined at the start of each)
+## Milestone 7 — Advanced
+Octaver, pitch shifter, graphic EQ, phaser, flanger, tremolo, vibrato, rotary, envelope filter,
+tape/ping-pong/stereo delay, spring reverb; reorderable routing; performance optimisation;
+multi-capture research for authentic tone controls.
 
-**M2 NAM:** loader thread + command/ready/retire queues; capture browser (folder scan, metadata
-table); error messages; crossfaded switching; resampling for non-48 kHz hosts with reported
-latency; input calibration and output normalisation; stress test (switch every block for
-10 min, zero allocations, no crash); CPU benchmark per architecture; float vs double decision.
-
-**M3 Cabinet:** WAV parser tests (all bit depths, mono/stereo, corrupt files); r8brain
-resampling; zero-latency partitioned convolver verified against direct convolution
-(error < −120 dBFS); dual IR, pan, polarity, HPF/LPF; waveform thumbnail.
-
-**M4 Core effects:** gate, compressor, overdrive, distortion, fuzz, 3-band + parametric EQ,
-chorus, digital/analog delay (host sync, tap tempo), room/hall/plate reverb, wah — each with its
-own tests (impulse/step/sine responses, stability at extreme settings, bypass click test).
-
-**M5 Presets & state:** JSON schema v1, migrations, file-reference resolver, factory/user
-libraries, categories, favourites, undo/redo, MIDI learn (CC→param, expression for wah/volume,
-tap tempo), DAW session round-trip tests in REAPER/Cubase/Logic/Ableton where available.
-
-**M6 GUI:** Blender asset pipeline (render script, naming, filmstrip packer), amp head, stomp
-page, cab page, post-FX page, preset browser, meters, tuner display, scaling 100–200 %.
-
-**M7 Advanced:** remaining effects (octaver, pitch shifter, graphic EQ, phaser, flanger,
-tremolo, vibrato, rotary, envelope filter, tape/ping-pong/stereo delay, spring reverb),
-reorderable routing, performance optimisation, multi-capture research for authentic tone
-controls.
-
-**M8 Release:** full regression, installers (Windows Inno Setup; macOS pkg, signed +
-notarised), versioning, release notes. Requires an Apple Developer ID and (recommended) a
-Windows code-signing certificate.
+## Milestone 8 — Release
+Full regression; Release VST3 binaries for Windows x64 and macOS universal attached to a
+GitHub Release; Windows installer (Inno Setup) and macOS pkg; installation guide; release notes.
+Signing: Windows code-signing certificate (recommended) and Apple Developer ID + notarisation
+(required to avoid Gatekeeper warnings) — both must be provided by the product owner.

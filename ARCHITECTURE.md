@@ -1,8 +1,22 @@
 # IRONCLAD — Architecture
 
-Status: **Planned (Session 1, 2026-11-11).** Nothing in this document is implemented yet.
-Every statement below about third-party code was checked against the actual source
-repositories cloned on 2026-11-11 (commit hashes in `DEPENDENCIES.md`), unless marked otherwise.
+Status: **Approved 2026-11-12; implementation in progress (Milestone 1).** Implementation status
+of each part is tracked in `ROADMAP.md`. Every statement below about third-party code was checked
+against the actual source repositories cloned on 2026-11-11 (commit hashes in `DEPENDENCIES.md`).
+
+---
+
+## 0. Product scope (binding)
+
+| | Supported | Not supported |
+|---|---|---|
+| Operating systems | **Windows 10/11 x64**, **macOS 13+** (universal: Apple Silicon + Intel) | Linux (not a target, never a deliverable) |
+| Plugin format | **VST3 only** | AU, AUv3, CLAP, AAX, VST2, standalone app |
+| Deliverable | **Compiled, installable, working VST3 binaries** for both OSes, validated and tested in a real host (REAPER preferred), plus source, build scripts, docs and an installation guide | Source-only or prototype hand-offs |
+
+Linux may be used **internally** to compile and unit-test platform-independent engine code
+during development. Nothing Linux-specific is built, tested in CI, documented for users or shipped.
+Native binaries are produced on GitHub-hosted **Windows and macOS runners** (§13).
 
 ---
 
@@ -37,13 +51,13 @@ Reasons, in priority order:
 2. **NAM integration is already proven on iPlug2**, including resampling, state chunks and IGraphics UI.
 3. **IGraphics fits the visual plan.** Pre-rendered Blender filmstrips + layered bitmaps are exactly
    what `IBKnobControl` / `IBSwitchControl` / `IBitmapControl` are designed for. No real-time 3D needed.
-4. Linux is not a product target, so iPlug2's lack of Linux support costs us nothing for shipping.
-   We neutralise it for development by keeping the **audio engine framework-free** (§2), so all DSP
-   tests run on Linux/CI without iPlug2.
+4. iPlug2 covers exactly the two required targets (Windows VST3, macOS VST3). Its lack of
+   Linux support is irrelevant because Linux is not a target. The **audio engine is kept
+   framework-free** (§2) so DSP can be unit-tested without a plugin host.
 
 Accepted costs: smaller ecosystem than JUCE; iPlug2 CMake support is newer than its Xcode/VS
-project files and must be proven in Milestone 1; the plugin adapter layer cannot be built or
-tested in this Linux environment.
+project files and must be proven in Milestone 1; the plugin itself can only be built on
+Windows/macOS machines or CI runners.
 
 ### 1.3 Reuse the official NAM plugin — as reference, not as a fork
 
@@ -87,7 +101,7 @@ This is the decision that most changes the product's shape; it is listed again i
 |    command queue, meters    |                                 |
 +-----------------------------+--------------------------------+
 |  ENGINE  (static lib `ironclad_engine`, pure C++20,          |
-|           no iPlug2/JUCE headers — builds & tests on Linux)  |
+|           no iPlug2 headers — unit-testable without a host)  |
 |  Audio/  Engine, SignalChain, ProcessContext, buffers        |
 |  NAM/    AmpSlot (wraps nam::DSP + resampler), loader        |
 |  Cabinet/ IR loader, resampler, partitioned convolver, dual  |
@@ -105,7 +119,8 @@ This is the decision that most changes the product's shape; it is listed again i
 Rules:
 
 - `ironclad_engine` must never include iPlug2 or OS headers. This is enforced by the build:
-  the engine target is compiled and unit-tested on Linux, where iPlug2 is not available.
+  the engine target and its test executable have no iPlug2 include paths, so any such include
+  fails to compile.
 - The GUI never calls engine DSP code. It reads parameter values, sends commands
   (e.g. "load capture at path X") through a queue, and receives meter/status data from
   lock-free FIFOs (iPlug2 `ISender` on the adapter side).
@@ -161,7 +176,8 @@ in (L/R or mono) -> input select/sum -> INPUT GAIN -> TUNER (analysis only)
 
 - NAM models are 1-in/1-out (the NAM plugin rejects anything else), so everything up to the
   amp is mono. Stereo begins at the cabinet (stereo IR or dual-IR panning) and post-FX.
-- Mono-out hosts receive a mono sum. Supported I/O: 1→1, 1→2, 2→2.
+- Mono-out hosts receive a mono sum. Supported VST3 bus layouts: mono→mono, mono→stereo,
+  stereo→stereo (stereo input is summed or the left channel used, user-selectable).
 - Routing is modelled from day one as an ordered list of `ModuleId`s inside `SignalChain`, so
   moving modules later (spec §5 examples) is a data change, not a rewrite. Milestone 1–5 ship
   the fixed order; Milestone 7 exposes reordering. Reordering on the audio thread is done by
@@ -265,25 +281,49 @@ for free; wet/dry and level are per-effect parameters where meaningful. Nonlinea
 
 ## 11. Testing strategy (summary — details in TESTING.md from Milestone 1)
 
-- Engine unit tests (doctest) run on Linux, Windows, macOS in CI.
+- Engine unit tests (doctest) run natively on the Windows and macOS CI runners (and may be run
+  locally on any developer machine).
 - Golden-audio tests: render known input through known captures/IRs, compare with tolerance.
   NAM Core's `example_models/*.nam` and `example_audio/input.wav` are used for this.
 - Real-time safety: allocation-guard tests (§3.2); stress tests that switch captures every
   block while processing.
 - Matrix: 44.1/48/88.2/96/176.4/192 kHz × block sizes {1, 16, 32, 64, 128, 256, 512, 1024, 2048,
   variable/random} × {mono, stereo}.
-- Plugin validation: Steinberg `validator` (VST3), `auval` (macOS AU), pluginval; DAW smoke
-  tests (REAPER first — cheap and scriptable).
+- Plugin validation: Steinberg `validator` on the VST3 bundle on both OSes; pluginval as a
+  second validator; real-host tests in REAPER on Windows and macOS (load, audio, captures, IRs,
+  presets, automation, project save/reopen).
 
-## 12. Decisions requiring your approval
+## 12. Approved decisions (2026-11-12)
 
 1. **Framework: upstream iPlug2** (not JUCE). §1.2.
 2. **Do not fork NeuralAmpModelerPlugin**; build IRONCLAD fresh on NAM Core + iPlug2, porting
    selected MIT code with attribution. §1.3.
-3. **C++20** (NAM Core and the NAM plugin both require it; the spec allows "C++17 or newer").
-4. **Engine as a framework-free library**, tested on Linux CI. §2.
-5. Primary development OS: Windows (you) + GitHub Actions for macOS; a real Mac is still needed
-   for AU validation in Logic/GarageBand and for GUI checks on Retina displays.
+3. **C++20.**
+4. **Engine as a framework-free library.** §2.
+5. **Scope:** VST3 only; Windows x64 + macOS universal only; the final deliverable is working
+   binaries (§0).
+
+## 13. Build and delivery pipeline
+
+```
+push / manual trigger
+  ├─ windows-latest (VS 2022, x64, Release)  → engine tests → NAM Core tests → IRONCLAD.vst3
+  │                                           → Steinberg validator → artifact IRONCLAD-win-x64.zip
+  └─ macos-latest  (Xcode, arm64+x86_64)     → engine tests → NAM Core tests → IRONCLAD.vst3
+                                              → codesign (ad-hoc until a Developer ID exists)
+                                              → validator → artifact IRONCLAD-macos-universal.zip
+tag vX.Y.Z → same jobs + GitHub Release with both zips + installation guide
+```
+
+- macOS jobs cost 10× minutes on private repositories, so they run on `main`, on tags and on
+  manual dispatch, not on every branch push.
+- Real-host testing (REAPER) cannot run on hosted CI runners in a meaningful way (no audio
+  device, no interactive GUI). It is done on real Windows and macOS machines: the user's machine,
+  or a machine reached through the Claude desktop app's computer-use bridge. Results are recorded
+  in `TESTING.md` with date, OS, host version and build hash.
+- Distribution on macOS: binaries downloaded from the internet are quarantined by Gatekeeper.
+  Until an Apple Developer ID certificate is available, the installation guide documents the
+  one-time `xattr` command; a signed and notarised build requires the certificate (M8).
 
 Open technical questions (no approval needed; resolved by measurement):
 - `NAM_SAMPLE` float vs double (CPU vs. bit-exactness with NAM reference) — benchmark in M2.

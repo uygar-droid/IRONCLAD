@@ -1,0 +1,11 @@
+[submodule "ThirdParty/iPlug2"]
+	path = ThirdParty/iPlug2
+	url = https://github.com/iPlug2/iPlug2.git
+	shallow = true
+[submodule "ThirdParty/NeuralAmpModelerCore"]
+	path = ThirdParty/NeuralAmpModelerCore
+	url = https://github.com/sdatkinson/NeuralAmpModelerCore.git
+[submodule "ThirdParty/doctest"]
+	path = ThirdParty/doctest
+	url = https://github.com/doctest/doctest.git
+	shallow = true

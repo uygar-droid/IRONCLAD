@@ -1,0 +1,124 @@
+name: Build VST3
+
+# Native builds of IRONCLAD.vst3 for the only two supported targets:
+# Windows x64 and macOS universal (Apple Silicon + Intel).
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # needed only to attach binaries to GitHub Releases on tags
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-2025
+            preset: windows-ninja-release
+            artifact: IRONCLAD-windows-x64
+          - name: macOS universal
+            os: macos-15
+            preset: macos-ninja-release
+            artifact: IRONCLAD-macos-universal
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false   # fetched by Scripts/bootstrap.sh at pinned versions
+
+      - name: MSVC developer environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Ninja
+        if: runner.os == 'macOS'
+        run: brew list ninja >/dev/null 2>&1 || brew install ninja
+
+      - name: Toolchain versions
+        run: |
+          cmake --version | head -1
+          ninja --version
+          if [ "$RUNNER_OS" = "Windows" ]; then cl 2>&1 | head -1 || true; else xcodebuild -version; clang --version | head -1; fi
+
+      - name: Cache VST3 SDK and validator
+        uses: actions/cache@v4
+        with:
+          path: |
+            ThirdParty/iPlug2/Dependencies/IPlug/VST3_SDK
+            build/tools
+          key: vst3sdk-v2-${{ runner.os }}-${{ hashFiles('Scripts/bootstrap.sh') }}
+
+      - name: Bootstrap dependencies (+ Steinberg validator)
+        run: Scripts/bootstrap.sh validator
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build engine, tests and VST3
+        run: cmake --build --preset ${{ matrix.preset }} --parallel
+
+      - name: Unit tests (engine + NAM Core)
+        run: ctest --preset ${{ matrix.preset }} --verbose
+
+      - name: Verify universal binary
+        if: runner.os == 'macOS'
+        run: |
+          lipo -info build/${{ matrix.preset }}/out/IRONCLAD.vst3/Contents/MacOS/IRONCLAD
+          lipo -verify_arch build/${{ matrix.preset }}/out/IRONCLAD.vst3/Contents/MacOS/IRONCLAD arm64 x86_64
+
+      - name: Ad-hoc code signature (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          codesign --force --deep --sign - build/${{ matrix.preset }}/out/IRONCLAD.vst3
+          codesign --verify --verbose=2 build/${{ matrix.preset }}/out/IRONCLAD.vst3
+
+      - name: Steinberg VST3 validator
+        run: Scripts/validate.sh build/${{ matrix.preset }}/out/IRONCLAD.vst3
+
+      - name: Package
+        run: |
+          mkdir -p dist/${{ matrix.artifact }}
+          cp -R build/${{ matrix.preset }}/out/IRONCLAD.vst3 dist/${{ matrix.artifact }}/
+          cp INSTALL.md dist/${{ matrix.artifact }}/
+          cp build/validator.log dist/${{ matrix.artifact }}/validator-report.txt
+          cd dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a -tzip ${{ matrix.artifact }}.zip ${{ matrix.artifact }} > /dev/null
+          else
+            ditto -c -k --keepParent ${{ matrix.artifact }} ${{ matrix.artifact }}.zip
+          fi
+          ls -la
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}.zip
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ matrix.artifact }}.zip
+          prerelease: ${{ contains(github.ref, '-') }}

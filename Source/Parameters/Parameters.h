@@ -1,0 +1,94 @@
+#pragma once
+
+// Single source of truth for every host-visible parameter.
+//
+// STABILITY RULES (DAW automation and saved projects depend on these):
+//   * Never reorder, renumber or reuse an entry. New parameters are appended only.
+//   * Never change an `id` string once released.
+//   * A parameter that is no longer used stays in the table (mark it kHidden).
+//   * Tests/param_ids.snapshot must be a prefix of this table; the test suite
+//     fails on any other change.
+
+#include <array>
+#include <cstdint>
+#include <string_view>
+
+namespace ironclad
+{
+
+enum class ParamUnit : std::uint8_t
+{
+  None,
+  Decibels,
+  Percent,
+  Milliseconds,
+  Hertz,
+  Boolean
+};
+
+enum ParamFlags : std::uint32_t
+{
+  kParamNoFlags = 0,
+  kParamHidden = 1u << 0,      // kept for compatibility, not shown in host lists
+  kParamNotAutomatable = 1u << 1
+};
+
+struct ParamSpec
+{
+  int index;
+  std::string_view id;
+  std::string_view name;
+  double minValue;
+  double maxValue;
+  double defaultValue;
+  double step;
+  ParamUnit unit;
+  double smoothingMs; // 0 = applied without smoothing
+  std::uint32_t flags;
+};
+
+enum ParamIndex : int
+{
+  kParamInputGain = 0,
+  kParamOutputGain = 1,
+  kNumParams
+};
+
+inline constexpr std::array<ParamSpec, kNumParams> kParamSpecs{{
+  {kParamInputGain, "global.input_db", "Input", -24.0, 24.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
+  {kParamOutputGain, "global.output_db", "Output", -60.0, 12.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
+}};
+
+constexpr const ParamSpec& paramSpec(int index) noexcept { return kParamSpecs[static_cast<std::size_t>(index)]; }
+
+/// Returns the index for a stable id, or -1. Not real-time critical.
+constexpr int findParamIndex(std::string_view id) noexcept
+{
+  for (const auto& spec : kParamSpecs)
+    if (spec.id == id)
+      return spec.index;
+  return -1;
+}
+
+constexpr double clampToRange(const ParamSpec& spec, double v) noexcept
+{
+  return v < spec.minValue ? spec.minValue : (v > spec.maxValue ? spec.maxValue : v);
+}
+
+// Compile-time integrity checks.
+constexpr bool paramTableIsConsistent()
+{
+  for (std::size_t i = 0; i < kParamSpecs.size(); ++i)
+  {
+    const auto& s = kParamSpecs[i];
+    if (s.index != static_cast<int>(i)) return false;
+    if (!(s.minValue < s.maxValue)) return false;
+    if (s.defaultValue < s.minValue || s.defaultValue > s.maxValue) return false;
+    for (std::size_t j = i + 1; j < kParamSpecs.size(); ++j)
+      if (kParamSpecs[j].id == s.id) return false;
+  }
+  return true;
+}
+static_assert(paramTableIsConsistent(), "Parameter table is inconsistent (index order, range or duplicate id)");
+
+} // namespace ironclad
