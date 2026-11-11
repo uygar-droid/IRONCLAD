@@ -58,6 +58,16 @@ Not a product target; used only to exercise platform-independent engine code bef
 Earlier runs of the same day found and fixed two CI-script defects (wrong `lipo` argument
 order; VST3-SDK cache restored before submodules). No product-code defect was found by CI.
 
+### 2026-11-12 — GitHub Actions run 43110255628, commit `54b62e2` (M2)
+| | Windows x64 | macOS universal |
+|---|---|---|
+| Build (Release) | ✅ | ✅ `x86_64 arm64`, signature valid |
+| `ironclad_tests` | ✅ 32/32 cases, 1940 assertions (incl. M2 stress: 0 audio-thread allocations) | ✅ 32/32, 1940 |
+| Steinberg VST3 validator | ✅ 47/0 | ✅ 47/0 |
+
+Defect found by CI and fixed: MSVC build failed because `<windows.h>` (via WDL in the resampler)
+defines `min`/`max` macros → `NOMINMAX` for the engine target.
+
 ### 2026-11-12 — Real host: REAPER on the user's Mac (macOS), build from run 43103645908
 Executed by the user with a real guitar input:
 - ✅ Plugin appears in REAPER's FX list and opens (after removing the download quarantine flag).
