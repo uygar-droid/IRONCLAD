@@ -44,5 +44,18 @@ Not a product target; used only to exercise platform-independent engine code bef
   architecture: WaveNet"). Fixed by linking NAM Core as a whole archive (`ironclad::nam`).
   The regression is covered by the NAM smoke tests.
 
-### Windows / macOS CI
-Pending — requires the GitHub repository to be connected (see ROADMAP M1).
+### 2026-11-12 — GitHub Actions run 43102977856, commit `b8a6855` (M1)
+| | Windows x64 (`windows-2025`, MSVC 19.51, Ninja) | macOS universal (`macos-15`, Xcode 16.4, Ninja) |
+|---|---|---|
+| Build engine + tests + VST3 (Release) | ✅ | ✅ |
+| `ironclad_tests` | ✅ 21/21 cases, 1288 assertions | ✅ 21/21 cases, 1288 assertions |
+| Steinberg VST3 validator (SDK 3.8.1) | ✅ **47 passed, 0 failed** (32- and 64-bit processing suites) | ✅ **47 passed, 0 failed** |
+| Universal binary | — | ✅ `x86_64 arm64` |
+| Code signature | — | ✅ ad-hoc, `valid on disk` |
+
+Earlier runs of the same day found and fixed two CI-script defects (wrong `lipo` argument
+order; VST3-SDK cache restored before submodules). No product-code defect was found by CI.
+
+### Real-host (REAPER) tests
+Not yet executed. Requires a Windows/macOS machine with REAPER (the user's machine, or this
+session linked to it through the Claude desktop app).

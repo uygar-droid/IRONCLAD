@@ -12,7 +12,7 @@ Last updated: 2026-11-12.
 | # | Milestone | Status | Deliverable |
 |---|---|---|---|
 | 0 | Planning, research, licensing | ✅ approved 2026-11-12 | Architecture docs |
-| 1 | Foundation | 🟠 in progress | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
+| 1 | Foundation | 🟡 built + validated in CI; real-host check pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
 | 2 | NAM integration | ⬜ | VST3 that loads and plays `.nam` captures |
 | 3 | Cabinet engine | ⬜ | + dual-IR zero-latency cabinet |
 | 4 | Core effects | ⬜ | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
@@ -35,21 +35,21 @@ framework-free engine with its first passing tests.
 
 | Task | Status |
 |---|---|
-| Git repository, pinned submodules (iPlug2, NAM Core, doctest) | see CHANGELOG |
-| Top-level CMake (C++20, Windows/macOS only for the plugin) + CMakePresets | see CHANGELOG |
-| Engine skeleton: `Engine`, `SmoothedValue`, `SpscQueue`, denormal guard, `ParamRegistry` | see CHANGELOG |
-| NAM Core compiled as an IRONCLAD library target (`ironclad_nam`) | see CHANGELOG |
-| Tests: gain/smoothing, sample-rate × block-size × channel matrix, SPSC, allocation guard, parameter-ID snapshot, NAM model load + process smoke test | see CHANGELOG |
-| VST3 shell (`Source/Plugin`), temporary minimal UI (replaced in M6) | see CHANGELOG |
-| Scripts: bootstrap, build, validate (PowerShell + bash) | see CHANGELOG |
-| GitHub Actions: Windows + macOS build, tests, validator, artifacts | see CHANGELOG |
-| **CI actually run, logs reviewed** | ⛔ needs a GitHub repository connected to this session |
+| Git repository, pinned submodules (iPlug2, NAM Core, doctest) | ✅ |
+| Top-level CMake (C++20, Windows/macOS only for the plugin) + CMakePresets | ✅ |
+| Engine skeleton: `Engine`, `SmoothedValue`, `SpscQueue`, denormal guard, `ParamRegistry` | ✅ |
+| NAM Core compiled as an IRONCLAD library target (`ironclad_nam`) | ✅ |
+| Tests: gain/smoothing, sample-rate × block-size × channel matrix, SPSC, allocation guard, parameter-ID snapshot, NAM model load + process smoke test | ✅ |
+| VST3 shell (`Source/Plugin`), temporary minimal UI (replaced in M6) | ✅ |
+| Scripts: bootstrap, build, validate (PowerShell + bash) | ✅ |
+| GitHub Actions: Windows + macOS build, tests, validator, artifacts | ✅ |
+| **CI actually run, logs reviewed** | ✅ run 43102977856 (see TESTING.md) |
 | Real-host smoke test (REAPER, Windows) | ⬜ after first CI artifact |
 
 Acceptance criteria (shown with real output):
-- [ ] CI green on Windows and macOS runners.
-- [ ] Steinberg `validator` passes on both VST3 builds.
-- [ ] Engine + NAM Core tests pass on both runners.
+- [x] CI green on Windows and macOS runners.
+- [x] Steinberg `validator` passes on both VST3 builds (47/47 each).
+- [x] Engine + NAM Core tests pass on both runners.
 - [ ] VST3 from CI loads in REAPER on Windows; audio passes; gain knobs work and automate.
 
 ## Milestone 2 — NAM integration
