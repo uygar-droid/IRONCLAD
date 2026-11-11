@@ -8,9 +8,13 @@
 //   process()       : audio thread only. Never allocates, locks, blocks or throws.
 
 #include <array>
+#include <chrono>
+#include <string>
 #include <atomic>
 #include <vector>
 
+#include "Amp/AmpStage.h"
+#include "Amp/CaptureLoader.h"
 #include "Audio/SmoothedValue.h"
 #include "Parameters/Parameters.h"
 
@@ -47,12 +51,24 @@ public:
   /// Clears all DSP state without allocating (transport jumps, bypass toggles).
   void reset() noexcept;
 
-  int latencySamples() const noexcept { return 0; }
+  int latencySamples() const noexcept { return mAmp.latencySamples(); }
+
+  // ---- Capture management (UI / host threads; never the audio thread) ----
+  void loadCapture(const std::string& utf8Path) { mLoader.requestLoad(utf8Path); }
+  void clearCapture() { mLoader.requestClear(); }
+  CaptureStatus captureStatus() const { return mLoader.status(); }
+  /// Path to store in presets / DAW state: the playing capture, or - if none could be
+  /// loaded (e.g. file missing on this machine) - the one that was requested, so it is
+  /// not silently dropped from the project.
+  std::string captureStatePath() const;
+  bool waitForLoader(int timeoutMs) const { return mLoader.waitUntilIdle(std::chrono::milliseconds(timeoutMs)); }
+  const AmpStage& ampStage() const noexcept { return mAmp; }
 
 private:
   void processChunk(const double* const* inputs, int numInputs, double* const* outputs, int numOutputs,
                     int offset, int numFrames) noexcept;
   void pullParameterTargets() noexcept;
+  void pullAmpTargets() noexcept;
 
   ProcessSpec mSpec{};
   bool mPrepared = false;
@@ -62,6 +78,9 @@ private:
   SmoothedValue mOutputGain; // linear
 
   std::vector<double> mMono; // maxBlockSize, allocated in prepare()
+
+  AmpStage mAmp;
+  CaptureLoader mLoader{mAmp.readyQueue(), mAmp.retireQueue()}; // declared after mAmp: destroyed first
 };
 
 double dbToGain(double db) noexcept;

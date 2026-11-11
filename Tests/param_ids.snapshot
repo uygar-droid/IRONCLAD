@@ -2,3 +2,7 @@
 # Format: <index> <stable id>
 0 global.input_db
 1 global.output_db
+2 amp.enabled
+3 amp.input_db
+4 amp.output_db
+5 amp.normalize

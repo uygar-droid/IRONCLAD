@@ -28,6 +28,9 @@ void Engine::prepare(const ProcessSpec& spec)
                    dbToGain(getParameter(kParamInputGain)));
   mOutputGain.reset(mSpec.sampleRate, paramSpec(kParamOutputGain).smoothingMs,
                     dbToGain(getParameter(kParamOutputGain)));
+  pullAmpTargets();
+  mLoader.reconfigure(mSpec.sampleRate, mSpec.maxBlockSize,
+                      [this](std::uint64_t generation) { mAmp.prepare(mSpec.sampleRate, mSpec.maxBlockSize, generation); });
   mPrepared = true;
 }
 
@@ -53,8 +56,21 @@ void Engine::reset() noexcept
   std::fill(mMono.begin(), mMono.end(), 0.0);
 }
 
+std::string Engine::captureStatePath() const
+{
+  const CaptureStatus st = mLoader.status();
+  return st.hasActive ? st.active.path : st.requestedPath;
+}
+
+void Engine::pullAmpTargets() noexcept
+{
+  mAmp.setTargets(getParameter(kParamAmpInputGain), getParameter(kParamAmpOutputGain),
+                  getParameter(kParamAmpEnabled) >= 0.5, getParameter(kParamAmpNormalize) >= 0.5);
+}
+
 void Engine::pullParameterTargets() noexcept
 {
+  pullAmpTargets();
   // dB -> linear conversion happens once per block per parameter, not per sample.
   mInputGain.setTarget(dbToGain(getParameter(kParamInputGain)));
   mOutputGain.setTarget(dbToGain(getParameter(kParamOutputGain)));
@@ -132,7 +148,8 @@ void Engine::processChunk(const double* const* inputs, int numInputs, double* co
   for (int i = 0; i < numFrames; ++i)
     mono[i] *= mInputGain.next();
 
-  // 3. Signal chain — NAM, cabinet and effects are inserted here in later milestones.
+  // 3. Signal chain. Amp (NAM capture); cabinet and effects follow in later milestones.
+  mAmp.process(mono, numFrames);
 
   // 4. Output gain (smoothed), then fan out to every output channel.
   for (int i = 0; i < numFrames; ++i)

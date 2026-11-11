@@ -12,8 +12,8 @@ add_library(ironclad_nam STATIC ${_nam_sources})
 target_compile_features(ironclad_nam PUBLIC cxx_std_20)
 target_include_directories(ironclad_nam
   PUBLIC "${NAM_CORE_DIR}"
-         "${NAM_CORE_DIR}/NAM"
   SYSTEM PUBLIC
+         "${NAM_CORE_DIR}/Dependencies/AudioDSPTools"
          "${NAM_CORE_DIR}/Dependencies/eigen"
          "${NAM_CORE_DIR}/Dependencies/nlohmann")
 

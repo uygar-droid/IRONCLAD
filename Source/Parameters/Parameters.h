@@ -51,12 +51,22 @@ enum ParamIndex : int
 {
   kParamInputGain = 0,
   kParamOutputGain = 1,
+  kParamAmpEnabled = 2,
+  kParamAmpInputGain = 3,
+  kParamAmpOutputGain = 4,
+  kParamAmpNormalize = 5,
   kNumParams
 };
 
 inline constexpr std::array<ParamSpec, kNumParams> kParamSpecs{{
   {kParamInputGain, "global.input_db", "Input", -24.0, 24.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
   {kParamOutputGain, "global.output_db", "Output", -60.0, 12.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
+  // Amp (NAM capture) stage. These are gain-staging controls around the capture, not
+  // the original amplifier's knobs (a capture is a snapshot of one amp setting).
+  {kParamAmpEnabled, "amp.enabled", "Amp On", 0.0, 1.0, 1.0, 1.0, ParamUnit::Boolean, 20.0, kParamNoFlags},
+  {kParamAmpInputGain, "amp.input_db", "Amp Input", -24.0, 24.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
+  {kParamAmpOutputGain, "amp.output_db", "Amp Output", -40.0, 12.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
+  {kParamAmpNormalize, "amp.normalize", "Normalize", 0.0, 1.0, 1.0, 1.0, ParamUnit::Boolean, 30.0, kParamNoFlags},
 }};
 
 constexpr const ParamSpec& paramSpec(int index) noexcept { return kParamSpecs[static_cast<std::size_t>(index)]; }

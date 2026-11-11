@@ -2,6 +2,7 @@ add_executable(ironclad_tests
   TestMain.cpp
   AllocationTracking.cpp
   AllocationTracking.h
+  TestAmp.cpp
   TestEngine.cpp
   TestNamSmoke.cpp
   TestParameters.cpp

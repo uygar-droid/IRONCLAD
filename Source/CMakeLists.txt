@@ -2,6 +2,14 @@
 # no iPlug2 include paths are given to this target, so such an include fails to compile.
 
 add_library(ironclad_engine STATIC
+  Amp/AmpModel.cpp
+  Amp/AmpModel.h
+  Amp/AmpStage.cpp
+  Amp/AmpStage.h
+  Amp/CaptureInfo.h
+  Amp/CaptureLoader.cpp
+  Amp/CaptureLoader.h
+  Amp/ResamplingModel.h
   Audio/Engine.cpp
   Audio/Engine.h
   Audio/SmoothedValue.h
