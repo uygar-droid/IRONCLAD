@@ -8,8 +8,8 @@
 
 #define PLUG_NAME "IRONCLAD"
 #define PLUG_MFR "Ironclad Audio"
-#define PLUG_VERSION_HEX 0x00000100
-#define PLUG_VERSION_STR "0.1.0"
+#define PLUG_VERSION_HEX 0x00000200
+#define PLUG_VERSION_STR "0.2.0"
 #define PLUG_UNIQUE_ID 'Ircl'
 #define PLUG_MFR_ID 'IrnA'
 #define PLUG_URL_STR "https://github.com/uygar-droid/IRONCLAD"
