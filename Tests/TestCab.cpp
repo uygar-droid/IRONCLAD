@@ -163,7 +163,7 @@ TEST_CASE("IRs recorded at another rate are resampled to the host rate")
     rig.impulseResponse(static_cast<int>(hostRate * 0.08), L, R);
     double e = 0.0;
     for (double v : L) e += v * v;
-    CHECK(e == doctest::Approx(1.0).epsilon(0.02));
+    CHECK(e == doctest::Approx(1.0).scale(0.0).epsilon(0.02));
   }
 }
 
@@ -323,7 +323,7 @@ TEST_CASE("Sample-rate change while an IR is active and while one is loading")
   rig.impulseResponse(20000, L, R);
   double e = 0.0;
   for (double v : L) e += v * v;
-  CHECK(e == doctest::Approx(1.0).epsilon(0.05)); // A and B blended 50/50 (identical IRs)
+  CHECK(e == doctest::Approx(1.0).scale(0.0).epsilon(0.05)); // A and B blended 50/50 (identical IRs)
 }
 
 TEST_CASE("Stress: IR switches every few ms with zero allocations on the audio thread")

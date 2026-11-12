@@ -164,8 +164,8 @@ TEST_CASE("Gain change is smoothed (no step) and settles to the exact dB value")
       run(e, b, total, block, rng, maxBlock);
 
       const double expected = 0.5 * dbToGain(12.0) * dbToGain(-6.0);
-      CHECK(b.out[0].back() == doctest::Approx(expected).epsilon(1e-9));
-      CHECK(b.out[1].back() == doctest::Approx(expected).epsilon(1e-9));
+      CHECK(b.out[0].back() == doctest::Approx(expected).scale(0.0).epsilon(1e-9));
+      CHECK(b.out[1].back() == doctest::Approx(expected).scale(0.0).epsilon(1e-9));
 
       // Largest per-sample change must be far below the full step (≈0.5 -> 1.0).
       const int ramp = static_cast<int>(std::lround(sr * 0.030));

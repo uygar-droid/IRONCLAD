@@ -6,6 +6,7 @@ add_executable(ironclad_tests
   TestCab.cpp
   TestCabinetDsp.cpp
   WavTestUtils.h
+  TestEffects.cpp
   TestEngine.cpp
   TestNamSmoke.cpp
   TestParameters.cpp

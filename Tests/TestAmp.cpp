@@ -270,7 +270,7 @@ TEST_CASE("Clearing the capture crossfades back to the dry signal")
   CHECK(rig.engine.captureStatePath().empty());
   rig.sine();
   for (int k = 0; k < rig.block; ++k)
-    CHECK(rig.out[static_cast<std::size_t>(k)] == doctest::Approx(rig.in[static_cast<std::size_t>(k)]).epsilon(1e-12));
+    CHECK(std::abs(rig.out[static_cast<std::size_t>(k)] - rig.in[static_cast<std::size_t>(k)]) <= 1e-12);
 }
 
 TEST_CASE("Switching captures during playback has no discontinuity")
@@ -313,7 +313,7 @@ TEST_CASE("Amp On/Off is smoothed and returns the dry signal when off")
   rig.engine.setParameter(kParamAmpEnabled, 0.0);
   for (int b = 0; b < 10; ++b) rig.sine();
   for (int k = 0; k < rig.block; ++k)
-    CHECK(rig.out[static_cast<std::size_t>(k)] == doctest::Approx(rig.in[static_cast<std::size_t>(k)]).epsilon(1e-12));
+    CHECK(std::abs(rig.out[static_cast<std::size_t>(k)] - rig.in[static_cast<std::size_t>(k)]) <= 1e-12);
 }
 
 TEST_CASE("Rapid requests coalesce: the last requested capture wins")

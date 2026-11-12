@@ -5,6 +5,9 @@
   #include "IControls.h"
 #endif
 
+#include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -25,6 +28,8 @@ const char* UnitLabel(ironclad::ParamUnit unit)
   case ironclad::ParamUnit::Percent: return "%";
   case ironclad::ParamUnit::Milliseconds: return "ms";
   case ironclad::ParamUnit::Hertz: return "Hz";
+  case ironclad::ParamUnit::Seconds: return "s";
+  case ironclad::ParamUnit::Ratio: return ":1";
   default: return "";
   }
 }
@@ -121,6 +126,19 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
     // string_views in kParamSpecs refer to string literals, so data() is NUL-terminated.
     if (spec.unit == ironclad::ParamUnit::Boolean)
       GetParam(spec.index)->InitBool(spec.name.data(), spec.defaultValue >= 0.5);
+    else if (spec.unit == ironclad::ParamUnit::Choice)
+    {
+      const int count = static_cast<int>(spec.maxValue) + 1;
+      GetParam(spec.index)->InitEnum(spec.name.data(), static_cast<int>(spec.defaultValue), count);
+      std::string_view rest = spec.choices;
+      for (int k = 0; k < count && !rest.empty(); ++k)
+      {
+        const auto bar = rest.find('|');
+        const std::string label(rest.substr(0, bar));
+        GetParam(spec.index)->SetDisplayText(k, label.c_str());
+        rest = bar == std::string_view::npos ? std::string_view{} : rest.substr(bar + 1);
+      }
+    }
     else if (spec.logScale)
       GetParam(spec.index)->InitDouble(spec.name.data(), spec.defaultValue, spec.minValue, spec.maxValue, spec.step,
                                        UnitLabel(spec.unit), 0, "", IParam::ShapeExp());
@@ -140,6 +158,7 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
   mLayoutFunc = [&](IGraphics* pGraphics) {
     // TEMPORARY functional editor (Milestones 1-5). Every control here is real and
     // host-synchronised; the photorealistic IRONCLAD interface replaces it in Milestone 6.
+    // Pages follow the final product's navigation: STOMP / AMP / CAB / POST FX.
     pGraphics->AttachCornerResizer(EUIResizerMode::Scale, false);
     pGraphics->AttachPanelBackground(IColor(255, 22, 22, 24));
     pGraphics->LoadFont("Roboto-Regular", ROBOTO_FN);
@@ -151,109 +170,224 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
                             .WithColor(kFR, IColor(255, 90, 90, 96))
                             .WithColor(kHL, IColor(60, 255, 176, 64))
                             .WithColor(kX1, kAmber)
-                            .WithLabelText(IText(14.f, kTextHi))
-                            .WithValueText(IText(13.f, kAmber));
-    const IVStyle buttonStyle = style.WithLabelText(IText(15.f, kAmber));
+                            .WithLabelText(IText(13.f, kTextHi))
+                            .WithValueText(IText(12.f, kAmber));
+    const IVStyle buttonStyle = style.WithLabelText(IText(14.f, kAmber));
+    static const char* kGroups[4] = {"stomp", "amp", "cab", "post"};
 
-    auto addKnob = [&](const IRECT& r, int param, const char* label) {
-      pGraphics->AttachControl(new IVKnobControl(r, param, label, style));
+    const char* group = "";
+    auto attach = [&](IControl* c, int tag = kNoTag) { pGraphics->AttachControl(c, tag, group); };
+    auto knob = [&](const IRECT& r, int param, const char* label) { attach(new IVKnobControl(r, param, label, style)); };
+    auto toggle = [&](const IRECT& r, int param, const char* label) {
+      attach(new IVToggleControl(r, param, label, style, "OFF", "ON"));
     };
-    auto addToggle = [&](const IRECT& r, int param, const char* label) {
-      pGraphics->AttachControl(new IVToggleControl(r, param, label, style, "OFF", "ON"));
+    auto choice = [&](const IRECT& r, int param, const char* label) { attach(new IVMenuButtonControl(r, param, label, style)); };
+    auto panel = [&](const IRECT& r) { attach(new IPanelControl(r, kPanel)); };
+    auto title = [&](const IRECT& r, const char* text) {
+      attach(new ITextControl(r, text, IText(16.f, kAmber, nullptr, EAlign::Near)));
+    };
+    /// A pedal: panel, title, ON switch and a row of controls.
+    struct Ctl { int param; const char* label; int kind; }; // kind 0 knob, 1 toggle, 2 menu
+    auto pedal = [&](const IRECT& r, const char* name, int enableParam, std::initializer_list<Ctl> ctls) {
+      panel(r);
+      const IRECT in = r.GetPadded(-10.f);
+      title(in.GetFromTop(22.f).GetReducedFromRight(80.f), name);
+      toggle(in.GetFromTop(52.f).GetFromRight(76.f), enableParam, "");
+      const IRECT row = in.GetReducedFromTop(58.f);
+      const int n = static_cast<int>(ctls.size());
+      int k = 0;
+      for (const auto& c : ctls)
+      {
+        const IRECT cell = row.GetGridCell(k++, 1, n);
+        if (c.kind == 0) knob(cell.GetPadded(-3.f), c.param, c.label);
+        else if (c.kind == 1) toggle(cell.GetCentredInside(std::min(cell.W(), 80.f), 64.f), c.param, c.label);
+        else choice(cell.GetCentredInside(std::min(cell.W() - 6.f, 120.f), 54.f), c.param, c.label);
+      }
     };
 
-    // ---- Header ----
-    pGraphics->AttachControl(new ITextControl(bounds.GetFromTop(44.f), "IRONCLAD", IText(36.f, kTextHi)));
+    // ---- Header + page navigation (bottom, as in the final design) ----
+    pGraphics->AttachControl(new ITextControl(bounds.GetFromTop(40.f), "IRONCLAD", IText(32.f, kTextHi)));
+    const IRECT content = IRECT(bounds.L, bounds.T + 46.f, bounds.R, bounds.B - 62.f);
+    pGraphics->AttachControl(new IVTabSwitchControl(bounds.GetFromBottom(44.f).GetReducedFromBottom(14.f),
+                                                    [this](IControl* pCaller) {
+                                                      ShowPage(static_cast<int>(std::lround(pCaller->GetValue() * 3.0)));
+                                                    },
+                                                    {"STOMP", "AMP", "CAB", "POST FX"}, "", buttonStyle));
 
-    // ---- AMP: capture panel ----
-    const IRECT capture = IRECT(bounds.L, bounds.T + 50.f, bounds.R, bounds.T + 170.f);
-    pGraphics->AttachControl(new IPanelControl(capture, kPanel));
-    const IRECT capInner = capture.GetPadded(-14.f);
-    const IRECT capButtons = capInner.GetFromLeft(180.f);
-    pGraphics->AttachControl(new IVButtonControl(capButtons.GetFromTop(42.f), [this](IControl* pCaller) {
-      SplashClickActionFunc(pCaller);
-      BrowseForCapture();
-    }, "LOAD CAPTURE...", buttonStyle, true, false));
-    pGraphics->AttachControl(new IVButtonControl(capButtons.GetFromTop(42.f).GetVShifted(50.f), [this](IControl* pCaller) {
-      SplashClickActionFunc(pCaller);
-      mEngine.clearCapture();
-    }, "CLEAR", style, true, false));
-    const IRECT capInfo = capInner.GetReducedFromLeft(200.f);
-    pGraphics->AttachControl(new ITextControl(capInfo.GetFromTop(36.f), "No capture loaded",
-                                              IText(26.f, kTextHi, nullptr, EAlign::Near)), kCtrlTagCaptureName);
-    pGraphics->AttachControl(new ITextControl(capInfo.GetFromTop(62.f).GetReducedFromTop(38.f), "",
-                                              IText(15.f, kTextLo, nullptr, EAlign::Near)), kCtrlTagCaptureMeta);
-    pGraphics->AttachControl(new ITextControl(capInfo.GetFromTop(88.f).GetReducedFromTop(64.f), "",
-                                              IText(14.f, kAmber, nullptr, EAlign::Near)), kCtrlTagCaptureStatus);
-
-    // ---- AMP: controls row ----
-    const IRECT ampRow = IRECT(bounds.L, bounds.T + 176.f, bounds.R, bounds.T + 316.f);
-    addKnob(ampRow.GetGridCell(0, 1, 6).GetPadded(-6.f), ironclad::kParamInputGain, "Input");
-    addKnob(ampRow.GetGridCell(1, 1, 6).GetPadded(-6.f), ironclad::kParamAmpInputGain, "Amp Input");
-    addKnob(ampRow.GetGridCell(2, 1, 6).GetPadded(-6.f), ironclad::kParamAmpOutputGain, "Amp Output");
-    addKnob(ampRow.GetGridCell(3, 1, 6).GetPadded(-6.f), ironclad::kParamOutputGain, "Output");
-    addToggle(ampRow.GetGridCell(4, 1, 6).GetCentredInside(100.f, 80.f), ironclad::kParamAmpEnabled, "Amp");
-    addToggle(ampRow.GetGridCell(5, 1, 6).GetCentredInside(100.f, 80.f), ironclad::kParamAmpNormalize, "Normalize");
-
-    // ---- CAB: two IR slots ----
-    const IRECT cab = IRECT(bounds.L, bounds.T + 326.f, bounds.R, bounds.B - 150.f);
-    for (int slot = 0; slot < 2; ++slot)
+    // ================= STOMP =================
+    group = kGroups[0];
     {
-      const IRECT panel = cab.GetGridCell(slot, 1, 2).GetPadded(-4.f);
-      pGraphics->AttachControl(new IPanelControl(panel, kPanel));
-      const IRECT in = panel.GetPadded(-12.f);
-      pGraphics->AttachControl(new ITextControl(in.GetFromTop(22.f).GetFromLeft(60.f), slot == 0 ? "IR A" : "IR B",
-                                                IText(18.f, kAmber, nullptr, EAlign::Near)));
-      const IRECT btnRow = in.GetFromTop(32.f).GetReducedFromLeft(70.f);
-      pGraphics->AttachControl(new IVButtonControl(btnRow.GetGridCell(0, 1, 2).GetPadded(-3.f), [this, slot](IControl* pCaller) {
-        SplashClickActionFunc(pCaller);
-        BrowseForIr(slot);
-      }, "LOAD IR...", buttonStyle, true, false));
-      pGraphics->AttachControl(new IVButtonControl(btnRow.GetGridCell(1, 1, 2).GetPadded(-3.f), [this, slot](IControl* pCaller) {
-        SplashClickActionFunc(pCaller);
-        mEngine.clearIr(slot);
-      }, "CLEAR", style, true, false));
-
-      pGraphics->AttachControl(new ITextControl(in.GetReducedFromTop(38.f).GetFromTop(24.f), "No IR loaded",
-                                                IText(18.f, kTextHi, nullptr, EAlign::Near)),
-                               slot == 0 ? kCtrlTagIrName0 : kCtrlTagIrName1);
-      pGraphics->AttachControl(new ITextControl(in.GetReducedFromTop(62.f).GetFromTop(18.f), "",
-                                                IText(13.f, kTextLo, nullptr, EAlign::Near)),
-                               slot == 0 ? kCtrlTagIrInfo0 : kCtrlTagIrInfo1);
-      pGraphics->AttachControl(new ITextControl(in.GetReducedFromTop(80.f).GetFromTop(18.f), "",
-                                                IText(13.f, kAmber, nullptr, EAlign::Near)),
-                               slot == 0 ? kCtrlTagIrStatus0 : kCtrlTagIrStatus1);
-      pGraphics->AttachControl(new IrWaveformControl(in.GetReducedFromTop(102.f).GetFromTop(44.f)),
-                               slot == 0 ? kCtrlTagIrWave0 : kCtrlTagIrWave1);
-
-      const IRECT knobs = in.GetReducedFromTop(150.f);
-      const int on = slot == 0 ? ironclad::kParamCabAEnabled : ironclad::kParamCabBEnabled;
-      const int lvl = slot == 0 ? ironclad::kParamCabALevel : ironclad::kParamCabBLevel;
-      const int pan = slot == 0 ? ironclad::kParamCabAPan : ironclad::kParamCabBPan;
-      const int inv = slot == 0 ? ironclad::kParamCabAInvert : ironclad::kParamCabBInvert;
-      addKnob(knobs.GetGridCell(0, 1, 4).GetPadded(-4.f), lvl, "Level");
-      addKnob(knobs.GetGridCell(1, 1, 4).GetPadded(-4.f), pan, "Pan");
-      addToggle(knobs.GetGridCell(2, 1, 4).GetCentredInside(80.f, 70.f), on, "On");
-      addToggle(knobs.GetGridCell(3, 1, 4).GetCentredInside(80.f, 70.f), inv, "Invert");
+      const IRECT r1 = content.GetFromTop(content.H() * 0.5f).GetPadded(-4.f);
+      const IRECT r2 = content.GetFromBottom(content.H() * 0.5f).GetPadded(-4.f);
+      pedal(IRECT(r1.L, r1.T, r1.L + r1.W() * 0.25f, r1.B).GetPadded(-4.f), "NOISE GATE", ironclad::kParamGateEnabled,
+            {{ironclad::kParamGateThreshold, "Threshold", 0}, {ironclad::kParamGateRelease, "Release", 0}});
+      pedal(IRECT(r1.L + r1.W() * 0.25f, r1.T, r1.L + r1.W() * 0.75f, r1.B).GetPadded(-4.f), "COMPRESSOR",
+            ironclad::kParamCompEnabled,
+            {{ironclad::kParamCompThreshold, "Threshold", 0}, {ironclad::kParamCompRatio, "Ratio", 0},
+             {ironclad::kParamCompAttack, "Attack", 0}, {ironclad::kParamCompRelease, "Release", 0},
+             {ironclad::kParamCompMakeup, "Makeup", 0}, {ironclad::kParamCompMix, "Mix", 0}});
+      pedal(IRECT(r1.L + r1.W() * 0.75f, r1.T, r1.R, r1.B).GetPadded(-4.f), "BOOST", ironclad::kParamBoostEnabled,
+            {{ironclad::kParamBoostGain, "Gain", 0}, {ironclad::kParamBoostBright, "Bright", 1}});
+      pedal(r2.GetGridCell(0, 1, 4).GetPadded(-4.f), "OVERDRIVE", ironclad::kParamOdEnabled,
+            {{ironclad::kParamOdDrive, "Drive", 0}, {ironclad::kParamOdTone, "Tone", 0}, {ironclad::kParamOdLevel, "Level", 0}});
+      pedal(r2.GetGridCell(1, 1, 4).GetPadded(-4.f), "DISTORTION", ironclad::kParamDistEnabled,
+            {{ironclad::kParamDistDrive, "Drive", 0}, {ironclad::kParamDistTone, "Tone", 0}, {ironclad::kParamDistLevel, "Level", 0}});
+      pedal(r2.GetGridCell(2, 1, 4).GetPadded(-4.f), "FUZZ", ironclad::kParamFuzzEnabled,
+            {{ironclad::kParamFuzzFuzz, "Fuzz", 0}, {ironclad::kParamFuzzTone, "Tone", 0}, {ironclad::kParamFuzzLevel, "Level", 0}});
+      pedal(r2.GetGridCell(3, 1, 4).GetPadded(-4.f), "WAH", ironclad::kParamWahEnabled,
+            {{ironclad::kParamWahPosition, "Pedal", 0}, {ironclad::kParamWahResonance, "Reso", 0}, {ironclad::kParamWahMix, "Mix", 0}});
     }
 
-    // ---- CAB: global row ----
-    const IRECT cabRow = IRECT(bounds.L, bounds.B - 144.f, bounds.R, bounds.B - 24.f);
-    addKnob(cabRow.GetGridCell(0, 1, 5).GetPadded(-6.f), ironclad::kParamCabBlend, "A / B Blend");
-    addKnob(cabRow.GetGridCell(1, 1, 5).GetPadded(-6.f), ironclad::kParamCabHighPass, "Cab HPF");
-    addKnob(cabRow.GetGridCell(2, 1, 5).GetPadded(-6.f), ironclad::kParamCabLowPass, "Cab LPF");
-    addToggle(cabRow.GetGridCell(3, 1, 5).GetCentredInside(100.f, 80.f), ironclad::kParamCabEnabled, "Cab");
+    // ================= AMP =================
+    group = kGroups[1];
+    {
+      const IRECT capture = content.GetFromTop(150.f);
+      panel(capture);
+      const IRECT capInner = capture.GetPadded(-14.f);
+      const IRECT capButtons = capInner.GetFromLeft(180.f);
+      attach(new IVButtonControl(capButtons.GetFromTop(42.f), [this](IControl* pCaller) {
+        SplashClickActionFunc(pCaller);
+        BrowseForCapture();
+      }, "LOAD CAPTURE...", buttonStyle, true, false));
+      attach(new IVButtonControl(capButtons.GetFromTop(42.f).GetVShifted(50.f), [this](IControl* pCaller) {
+        SplashClickActionFunc(pCaller);
+        mEngine.clearCapture();
+      }, "CLEAR", style, true, false));
+      const IRECT capInfo = capInner.GetReducedFromLeft(200.f);
+      attach(new ITextControl(capInfo.GetFromTop(36.f), "No capture loaded", IText(26.f, kTextHi, nullptr, EAlign::Near)),
+             kCtrlTagCaptureName);
+      attach(new ITextControl(capInfo.GetFromTop(62.f).GetReducedFromTop(38.f), "", IText(15.f, kTextLo, nullptr, EAlign::Near)),
+             kCtrlTagCaptureMeta);
+      attach(new ITextControl(capInfo.GetFromTop(88.f).GetReducedFromTop(64.f), "", IText(14.f, kAmber, nullptr, EAlign::Near)),
+             kCtrlTagCaptureStatus);
+
+      const IRECT ampRow = content.GetReducedFromTop(170.f).GetFromTop(170.f);
+      knob(ampRow.GetGridCell(0, 1, 6).GetPadded(-6.f), ironclad::kParamInputGain, "Input");
+      knob(ampRow.GetGridCell(1, 1, 6).GetPadded(-6.f), ironclad::kParamAmpInputGain, "Amp Input");
+      knob(ampRow.GetGridCell(2, 1, 6).GetPadded(-6.f), ironclad::kParamAmpOutputGain, "Amp Output");
+      knob(ampRow.GetGridCell(3, 1, 6).GetPadded(-6.f), ironclad::kParamOutputGain, "Output");
+      toggle(ampRow.GetGridCell(4, 1, 6).GetCentredInside(100.f, 80.f), ironclad::kParamAmpEnabled, "Amp");
+      toggle(ampRow.GetGridCell(5, 1, 6).GetCentredInside(100.f, 80.f), ironclad::kParamAmpNormalize, "Normalize");
+      attach(new ITextControl(content.GetReducedFromTop(360.f).GetFromTop(40.f),
+                              "Amp Input / Amp Output set the level into and out of the capture. A capture records one amp "
+                              "setting; tone shaping is done with the EQ on the POST FX page.",
+                              IText(13.f, kTextLo)));
+    }
+
+    // ================= CAB =================
+    group = kGroups[2];
+    {
+      const IRECT cab = content.GetReducedFromBottom(150.f);
+      for (int slot = 0; slot < 2; ++slot)
+      {
+        const IRECT pnl = cab.GetGridCell(slot, 1, 2).GetPadded(-4.f);
+        panel(pnl);
+        const IRECT in = pnl.GetPadded(-12.f);
+        title(in.GetFromTop(22.f).GetFromLeft(60.f), slot == 0 ? "IR A" : "IR B");
+        const IRECT btnRow = in.GetFromTop(32.f).GetReducedFromLeft(70.f);
+        attach(new IVButtonControl(btnRow.GetGridCell(0, 1, 2).GetPadded(-3.f), [this, slot](IControl* pCaller) {
+          SplashClickActionFunc(pCaller);
+          BrowseForIr(slot);
+        }, "LOAD IR...", buttonStyle, true, false));
+        attach(new IVButtonControl(btnRow.GetGridCell(1, 1, 2).GetPadded(-3.f), [this, slot](IControl* pCaller) {
+          SplashClickActionFunc(pCaller);
+          mEngine.clearIr(slot);
+        }, "CLEAR", style, true, false));
+        attach(new ITextControl(in.GetReducedFromTop(38.f).GetFromTop(24.f), "No IR loaded", IText(18.f, kTextHi, nullptr, EAlign::Near)),
+               slot == 0 ? kCtrlTagIrName0 : kCtrlTagIrName1);
+        attach(new ITextControl(in.GetReducedFromTop(62.f).GetFromTop(18.f), "", IText(13.f, kTextLo, nullptr, EAlign::Near)),
+               slot == 0 ? kCtrlTagIrInfo0 : kCtrlTagIrInfo1);
+        attach(new ITextControl(in.GetReducedFromTop(80.f).GetFromTop(18.f), "", IText(13.f, kAmber, nullptr, EAlign::Near)),
+               slot == 0 ? kCtrlTagIrStatus0 : kCtrlTagIrStatus1);
+        attach(new IrWaveformControl(in.GetReducedFromTop(102.f).GetFromTop(44.f)), slot == 0 ? kCtrlTagIrWave0 : kCtrlTagIrWave1);
+        const IRECT knobs = in.GetReducedFromTop(150.f);
+        knob(knobs.GetGridCell(0, 1, 4).GetPadded(-4.f), slot == 0 ? ironclad::kParamCabALevel : ironclad::kParamCabBLevel, "Level");
+        knob(knobs.GetGridCell(1, 1, 4).GetPadded(-4.f), slot == 0 ? ironclad::kParamCabAPan : ironclad::kParamCabBPan, "Pan");
+        toggle(knobs.GetGridCell(2, 1, 4).GetCentredInside(80.f, 70.f), slot == 0 ? ironclad::kParamCabAEnabled : ironclad::kParamCabBEnabled, "On");
+        toggle(knobs.GetGridCell(3, 1, 4).GetCentredInside(80.f, 70.f), slot == 0 ? ironclad::kParamCabAInvert : ironclad::kParamCabBInvert, "Invert");
+      }
+      const IRECT cabRow = content.GetFromBottom(140.f);
+      knob(cabRow.GetGridCell(0, 1, 5).GetPadded(-6.f), ironclad::kParamCabBlend, "A / B Blend");
+      knob(cabRow.GetGridCell(1, 1, 5).GetPadded(-6.f), ironclad::kParamCabHighPass, "Cab HPF");
+      knob(cabRow.GetGridCell(2, 1, 5).GetPadded(-6.f), ironclad::kParamCabLowPass, "Cab LPF");
+      toggle(cabRow.GetGridCell(3, 1, 5).GetCentredInside(100.f, 80.f), ironclad::kParamCabEnabled, "Cab");
+    }
+
+    // ================= POST FX =================
+    group = kGroups[3];
+    {
+      const IRECT r1 = content.GetFromTop(content.H() * 0.5f).GetPadded(-4.f);
+      const IRECT r2 = content.GetFromBottom(content.H() * 0.5f).GetPadded(-4.f);
+      pedal(IRECT(r1.L, r1.T, r1.L + r1.W() * 0.6f, r1.B).GetPadded(-4.f), "EQ", ironclad::kParamEqEnabled,
+            {{ironclad::kParamEqLow, "Bass", 0}, {ironclad::kParamEqMid, "Mid", 0}, {ironclad::kParamEqMidFreq, "Mid Freq", 0},
+             {ironclad::kParamEqHigh, "Treble", 0}, {ironclad::kParamEqLevel, "Level", 0}});
+      pedal(IRECT(r1.L + r1.W() * 0.6f, r1.T, r1.R, r1.B).GetPadded(-4.f), "CHORUS", ironclad::kParamChorusEnabled,
+            {{ironclad::kParamChorusRate, "Rate", 0}, {ironclad::kParamChorusDepth, "Depth", 0}, {ironclad::kParamChorusMix, "Mix", 0}});
+      const IRECT delayRect = IRECT(r2.L, r2.T, r2.L + r2.W() * 0.62f, r2.B).GetPadded(-4.f);
+      pedal(delayRect, "DELAY", ironclad::kParamDelayEnabled,
+            {{ironclad::kParamDelayType, "Type", 2}, {ironclad::kParamDelayTime, "Time", 0}, {ironclad::kParamDelaySync, "Sync", 1},
+             {ironclad::kParamDelayDivision, "Division", 2}, {ironclad::kParamDelayFeedback, "Feedback", 0},
+             {ironclad::kParamDelayMix, "Mix", 0}, {ironclad::kParamDelayLowCut, "Low Cut", 0}, {ironclad::kParamDelayHighCut, "High Cut", 0}});
+      attach(new IVButtonControl(delayRect.GetPadded(-10.f).GetFromTop(26.f).GetFromRight(160.f).GetHShifted(-84.f),
+                                 [this](IControl* pCaller) {
+                                   SplashClickActionFunc(pCaller);
+                                   TapDelayTempo();
+                                 },
+                                 "TAP", buttonStyle, true, false));
+      pedal(IRECT(r2.L + r2.W() * 0.62f, r2.T, r2.R, r2.B).GetPadded(-4.f), "REVERB", ironclad::kParamReverbEnabled,
+            {{ironclad::kParamReverbType, "Type", 2}, {ironclad::kParamReverbDecay, "Decay", 0},
+             {ironclad::kParamReverbPreDelay, "Pre-Delay", 0}, {ironclad::kParamReverbDamping, "Damping", 0},
+             {ironclad::kParamReverbMix, "Mix", 0}});
+    }
+    group = "";
 
     WDL_String buildInfo;
     GetBuildInfoStr(buildInfo, __DATE__, __TIME__);
-    pGraphics->AttachControl(new ITextControl(bounds.GetFromBottom(18.f), buildInfo.Get(),
-                                              IText(12.f, IColor(255, 110, 110, 110), nullptr, EAlign::Far)));
+    pGraphics->AttachControl(new ITextControl(bounds.GetFromBottom(14.f), buildInfo.Get(),
+                                              IText(11.f, IColor(255, 110, 110, 110), nullptr, EAlign::Far)));
+    ShowPage(mPage);
     mShownStatusSerial = UINT64_MAX;
     mShownIrSerial = UINT64_MAX;
     RefreshCaptureDisplay(true);
     RefreshIrDisplay(true);
   };
 #endif
+}
+
+void IRONCLAD::ShowPage(int page)
+{
+#if IPLUG_EDITOR
+  mPage = std::clamp(page, 0, 3);
+  IGraphics* pGraphics = GetUI();
+  if (!pGraphics)
+    return;
+  static const char* kGroups[4] = {"stomp", "amp", "cab", "post"};
+  for (int p = 0; p < 4; ++p)
+    pGraphics->ForControlInGroup(kGroups[p], [p, this](IControl* c) { c->Hide(p != mPage); });
+  // Keep the tab switch in sync (e.g. when the editor is reopened).
+  for (int i = 0; i < pGraphics->NControls(); ++i)
+    if (auto* tabs = dynamic_cast<IVTabSwitchControl*>(pGraphics->GetControl(i)))
+      tabs->SetValue(mPage / 3.0);
+  pGraphics->SetAllControlsDirty();
+#endif
+}
+
+void IRONCLAD::TapDelayTempo()
+{
+  const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  const auto ms = mTapTempo.tap(now);
+  if (!ms)
+    return;
+  auto setParam = [this](int idx, double plain) {
+    const double norm = GetParam(idx)->ToNormalized(plain);
+    SendParameterValueFromUI(idx, norm);
+#if IPLUG_EDITOR
+    if (IGraphics* g = GetUI())
+      g->ForControlWithParam(idx, [norm](IControl* c) { c->SetValueFromDelegate(norm); });
+#endif
+  };
+  setParam(ironclad::kParamDelaySync, 0.0); // a tapped time replaces tempo sync
+  setParam(ironclad::kParamDelayTime, *ms);
 }
 
 void IRONCLAD::PushAllParametersToEngine()
@@ -513,6 +647,7 @@ void IRONCLAD::OnParamChange(int paramIdx)
 
 void IRONCLAD::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 {
+  mEngine.setTempo(GetTempo());
   mEngine.process(inputs, NInChansConnected(), outputs, NOutChansConnected(), nFrames);
 }
 #endif

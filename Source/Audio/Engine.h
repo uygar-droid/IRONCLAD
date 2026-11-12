@@ -18,6 +18,16 @@
 #include "Audio/SmoothedValue.h"
 #include "Cabinet/CabStage.h"
 #include "Cabinet/IrLoader.h"
+#include "Effects/Boost.h"
+#include "Effects/BypassSlot.h"
+#include "Effects/Chorus.h"
+#include "Effects/Compressor.h"
+#include "Effects/Delay.h"
+#include "Effects/Drive.h"
+#include "Effects/Equalizer.h"
+#include "Effects/NoiseGate.h"
+#include "Effects/Reverb.h"
+#include "Effects/Wah.h"
 #include "Parameters/Parameters.h"
 
 namespace ironclad
@@ -77,12 +87,25 @@ public:
   std::string irStatePath(int slot) const;
   const CabStage& cabStage() const noexcept { return mCab; }
 
+  /// Host tempo for synced effects (any thread; 0 = unknown -> 120 BPM).
+  void setTempo(double bpm) noexcept { mTempo.store(bpm, std::memory_order_relaxed); }
+  double tempo() const noexcept { return mTempo.load(std::memory_order_relaxed); }
+
+  /// Effect slots in signal-flow order (for tests / diagnostics).
+  enum EffectSlot
+  {
+    kSlotGate, kSlotComp, kSlotBoost, kSlotOverdrive, kSlotDistortion, kSlotFuzz, kSlotWah,
+    kSlotEq, kSlotChorus, kSlotDelay, kSlotReverb, kNumEffectSlots
+  };
+  bool effectFullyOff(int slot) const noexcept { return mBypass[slot].fullyOff(); }
+
 private:
   void processChunk(const double* const* inputs, int numInputs, double* const* outputs, int numOutputs,
                     int offset, int numFrames) noexcept;
   void pullParameterTargets() noexcept;
   void pullAmpTargets() noexcept;
   void pullCabTargets() noexcept;
+  void pullEffectTargets() noexcept;
 
   ProcessSpec mSpec{};
   bool mPrepared = false;
@@ -96,6 +119,21 @@ private:
 
   AmpStage mAmp;
   CaptureLoader mLoader{mAmp.readyQueue(), mAmp.retireQueue()}; // declared after mAmp: destroyed first
+  // Effects (Milestone 4)
+  NoiseGate mGate;
+  Compressor mComp;
+  Boost mBoost;
+  Drive mOverdrive{Drive::Character::Overdrive};
+  Drive mDistortion{Drive::Character::Distortion};
+  Drive mFuzz{Drive::Character::Fuzz};
+  Wah mWah;
+  Equalizer mEq;
+  Chorus mChorus;
+  Delay mDelay;
+  Reverb mReverb;
+  BypassSlot mBypass[kNumEffectSlots];
+  std::atomic<double> mTempo{0.0};
+
   CabStage mCab;
   IrLoader mIrLoader{mCab.readyQueue(), mCab.retireQueue()};     // declared after mCab: destroyed first
 };

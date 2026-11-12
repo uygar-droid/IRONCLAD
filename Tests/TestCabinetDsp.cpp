@@ -138,7 +138,7 @@ TEST_CASE("Offline resampler preserves frequency and level")
     std::vector<double> x(static_cast<std::size_t>(from * 0.25));
     for (std::size_t i = 0; i < x.size(); ++i) x[i] = 0.5 * std::sin(kTwoPi * f * static_cast<double>(i) / from);
     const auto y = resampleOffline(x, from, to);
-    CHECK(static_cast<double>(y.size()) == doctest::Approx(x.size() * to / from).epsilon(0.001));
+    CHECK(static_cast<double>(y.size()) == doctest::Approx(x.size() * to / from).scale(0.0).epsilon(0.001));
     // Compare the middle of the signal (edges see the finite filter) with an ideal sine.
     double maxErr = 0.0;
     for (std::size_t i = y.size() / 4; i < 3 * y.size() / 4; ++i)

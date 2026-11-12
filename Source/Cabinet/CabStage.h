@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "Audio/SmoothedValue.h"
-#include "Cabinet/Biquad.h"
+#include "Dsp/Biquad.h"
 #include "Cabinet/ImpulseResponse.h"
 #include "Utilities/SpscQueue.h"
 

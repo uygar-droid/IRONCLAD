@@ -11,7 +11,6 @@ add_library(ironclad_engine STATIC
   Amp/CaptureLoader.h
   Amp/ResamplingModel.h
   Audio/Engine.cpp
-  Cabinet/Biquad.h
   Cabinet/CabStage.cpp
   Cabinet/CabStage.h
   Cabinet/Convolver.cpp
@@ -28,6 +27,21 @@ add_library(ironclad_engine STATIC
   Cabinet/WavReader.h
   Audio/Engine.h
   Audio/SmoothedValue.h
+  Dsp/Adaa.h
+  Dsp/Biquad.h
+  Dsp/DelayLine.h
+  Effects/Boost.h
+  Effects/BypassSlot.h
+  Effects/Chorus.h
+  Effects/Compressor.h
+  Effects/Delay.h
+  Effects/Drive.h
+  Effects/Equalizer.h
+  Effects/NoiseGate.h
+  Effects/Reverb.cpp
+  Effects/Reverb.h
+  Effects/TapTempo.h
+  Effects/Wah.h
   Parameters/Parameters.h
   Utilities/Denormals.h
   Utilities/Paths.h

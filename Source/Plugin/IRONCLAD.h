@@ -8,6 +8,7 @@
 #include "IPlug_include_in_plug_hdr.h"
 
 #include "Audio/Engine.h"
+#include "Effects/TapTempo.h"
 
 using namespace iplug;
 using namespace igraphics;
@@ -55,6 +56,8 @@ private:
   void RefreshIrDisplay(bool force);
   void BrowseForCapture();
   void BrowseForIr(int slot);
+  void ShowPage(int page);
+  void TapDelayTempo();
   int UnserializeLegacyParams(const IByteChunk& chunk, int startPos, int count);
 
   ironclad::Engine mEngine;
@@ -62,4 +65,6 @@ private:
   std::uint64_t mShownIrSerial = UINT64_MAX;
   WDL_String mLastCaptureFile, mLastCaptureDir;
   WDL_String mLastIrFile, mLastIrDir;
+  int mPage = 1; // 0 STOMP, 1 AMP, 2 CAB, 3 POST FX
+  ironclad::TapTempo mTapTempo;
 };

@@ -32,6 +32,27 @@ void Engine::prepare(const ProcessSpec& spec)
                     dbToGain(getParameter(kParamOutputGain)));
   pullAmpTargets();
   pullCabTargets();
+  pullEffectTargets();
+  {
+    const double sr = mSpec.sampleRate;
+    const int mb = mSpec.maxBlockSize;
+    mGate.prepare(sr, mb);
+    mComp.prepare(sr, mb);
+    mBoost.prepare(sr, mb);
+    mOverdrive.prepare(sr, mb);
+    mDistortion.prepare(sr, mb);
+    mFuzz.prepare(sr, mb);
+    mWah.prepare(sr, mb);
+    mEq.prepare(sr, mb);
+    mChorus.prepare(sr, mb);
+    mDelay.prepare(sr, mb);
+    mReverb.prepare(sr, mb);
+    static constexpr int kEnableParam[kNumEffectSlots] = {
+      kParamGateEnabled, kParamCompEnabled, kParamBoostEnabled, kParamOdEnabled, kParamDistEnabled, kParamFuzzEnabled,
+      kParamWahEnabled, kParamEqEnabled, kParamChorusEnabled, kParamDelayEnabled, kParamReverbEnabled};
+    for (int k = 0; k < kNumEffectSlots; ++k)
+      mBypass[k].prepare(sr, mb, getParameter(kEnableParam[k]) >= 0.5);
+  }
   mIrLoader.reconfigure(mSpec.sampleRate,
                         [this](std::uint64_t generation) { mCab.prepare(mSpec.sampleRate, mSpec.maxBlockSize, generation); });
   mLoader.reconfigure(mSpec.sampleRate, mSpec.maxBlockSize,
@@ -96,6 +117,77 @@ void Engine::pullCabTargets() noexcept
   mCab.setTargets(t);
 }
 
+void Engine::pullEffectTargets() noexcept
+{
+  auto on = [this](int p) { return getParameter(p) >= 0.5; };
+  auto pct = [this](int p) { return getParameter(p) / 100.0; };
+
+  mBypass[kSlotGate].setOn(on(kParamGateEnabled));
+  mGate.setThresholdDb(getParameter(kParamGateThreshold));
+  mGate.setRelease(getParameter(kParamGateRelease));
+
+  mBypass[kSlotComp].setOn(on(kParamCompEnabled));
+  mComp.setThresholdDb(getParameter(kParamCompThreshold));
+  mComp.setRatio(getParameter(kParamCompRatio));
+  mComp.setAttack(getParameter(kParamCompAttack));
+  mComp.setRelease(getParameter(kParamCompRelease));
+  mComp.setMakeupDb(getParameter(kParamCompMakeup));
+  mComp.setMix(pct(kParamCompMix));
+
+  mBypass[kSlotBoost].setOn(on(kParamBoostEnabled));
+  mBoost.setGainDb(getParameter(kParamBoostGain));
+  mBoost.setBright(on(kParamBoostBright));
+
+  mBypass[kSlotOverdrive].setOn(on(kParamOdEnabled));
+  mOverdrive.setDrive(pct(kParamOdDrive));
+  mOverdrive.setTone(pct(kParamOdTone));
+  mOverdrive.setLevelDb(getParameter(kParamOdLevel));
+
+  mBypass[kSlotDistortion].setOn(on(kParamDistEnabled));
+  mDistortion.setDrive(pct(kParamDistDrive));
+  mDistortion.setTone(pct(kParamDistTone));
+  mDistortion.setLevelDb(getParameter(kParamDistLevel));
+
+  mBypass[kSlotFuzz].setOn(on(kParamFuzzEnabled));
+  mFuzz.setDrive(pct(kParamFuzzFuzz));
+  mFuzz.setTone(pct(kParamFuzzTone));
+  mFuzz.setLevelDb(getParameter(kParamFuzzLevel));
+
+  mBypass[kSlotWah].setOn(on(kParamWahEnabled));
+  mWah.setPosition(pct(kParamWahPosition));
+  mWah.setResonance(pct(kParamWahResonance));
+  mWah.setMix(pct(kParamWahMix));
+
+  mBypass[kSlotEq].setOn(on(kParamEqEnabled));
+  mEq.setLowDb(getParameter(kParamEqLow));
+  mEq.setMidDb(getParameter(kParamEqMid));
+  mEq.setMidHz(getParameter(kParamEqMidFreq));
+  mEq.setHighDb(getParameter(kParamEqHigh));
+  mEq.setLevelDb(getParameter(kParamEqLevel));
+
+  mBypass[kSlotChorus].setOn(on(kParamChorusEnabled));
+  mChorus.setRateHz(getParameter(kParamChorusRate));
+  mChorus.setDepth(pct(kParamChorusDepth));
+  mChorus.setMix(pct(kParamChorusMix));
+
+  mBypass[kSlotDelay].setOn(on(kParamDelayEnabled));
+  mDelay.setType(static_cast<Delay::Type>(static_cast<int>(std::lround(getParameter(kParamDelayType)))));
+  const double delayMs = on(kParamDelaySync)
+                           ? Delay::syncedMs(tempo(), static_cast<int>(std::lround(getParameter(kParamDelayDivision))))
+                           : getParameter(kParamDelayTime);
+  mDelay.setTimeMs(delayMs);
+  mDelay.setFeedback(pct(kParamDelayFeedback));
+  mDelay.setMix(pct(kParamDelayMix));
+  mDelay.setFilters(getParameter(kParamDelayLowCut), getParameter(kParamDelayHighCut));
+
+  mBypass[kSlotReverb].setOn(on(kParamReverbEnabled));
+  mReverb.setType(static_cast<Reverb::Type>(static_cast<int>(std::lround(getParameter(kParamReverbType)))));
+  mReverb.setDecaySeconds(getParameter(kParamReverbDecay));
+  mReverb.setPreDelayMs(getParameter(kParamReverbPreDelay));
+  mReverb.setDamping(pct(kParamReverbDamping));
+  mReverb.setMix(pct(kParamReverbMix));
+}
+
 void Engine::pullAmpTargets() noexcept
 {
   mAmp.setTargets(getParameter(kParamAmpInputGain), getParameter(kParamAmpOutputGain),
@@ -106,6 +198,7 @@ void Engine::pullParameterTargets() noexcept
 {
   pullAmpTargets();
   pullCabTargets();
+  pullEffectTargets();
   // dB -> linear conversion happens once per block per parameter, not per sample.
   mInputGain.setTarget(dbToGain(getParameter(kParamInputGain)));
   mOutputGain.setTarget(dbToGain(getParameter(kParamOutputGain)));
@@ -183,13 +276,29 @@ void Engine::processChunk(const double* const* inputs, int numInputs, double* co
   for (int i = 0; i < numFrames; ++i)
     mono[i] *= mInputGain.next();
 
-  // 3. Signal chain: amp (NAM capture, mono) -> cabinet (IRs, mono in / stereo out).
+  // 3. Pre-amp effects (mono): gate -> comp -> boost -> overdrive -> distortion -> fuzz -> wah.
+  const int n = numFrames;
+  mBypass[kSlotGate].run(mono, nullptr, n, [&](int k) { mGate.process(mono, k); }, [&] { mGate.reset(); });
+  mBypass[kSlotComp].run(mono, nullptr, n, [&](int k) { mComp.process(mono, k); }, [&] { mComp.reset(); });
+  mBypass[kSlotBoost].run(mono, nullptr, n, [&](int k) { mBoost.process(mono, k); }, [&] { mBoost.reset(); });
+  mBypass[kSlotOverdrive].run(mono, nullptr, n, [&](int k) { mOverdrive.process(mono, k); }, [&] { mOverdrive.reset(); });
+  mBypass[kSlotDistortion].run(mono, nullptr, n, [&](int k) { mDistortion.process(mono, k); }, [&] { mDistortion.reset(); });
+  mBypass[kSlotFuzz].run(mono, nullptr, n, [&](int k) { mFuzz.process(mono, k); }, [&] { mFuzz.reset(); });
+  mBypass[kSlotWah].run(mono, nullptr, n, [&](int k) { mWah.process(mono, k); }, [&] { mWah.reset(); });
+
+  // 4. Amp (NAM capture, mono) -> cabinet (IRs, mono in / stereo out).
   mAmp.process(mono, numFrames);
   double* left = mLeft.data();
   double* right = mRight.data();
   mCab.process(mono, left, right, numFrames);
 
-  // 4. Output gain (smoothed), then map to the host's output channels.
+  // 5. Post effects (stereo): EQ -> chorus -> delay -> reverb.
+  mBypass[kSlotEq].run(left, right, n, [&](int k) { mEq.process(left, right, k); }, [&] { mEq.reset(); });
+  mBypass[kSlotChorus].run(left, right, n, [&](int k) { mChorus.process(left, right, k); }, [&] { mChorus.reset(); });
+  mBypass[kSlotDelay].run(left, right, n, [&](int k) { mDelay.process(left, right, k); }, [&] { mDelay.reset(); });
+  mBypass[kSlotReverb].run(left, right, n, [&](int k) { mReverb.process(left, right, k); }, [&] { mReverb.reset(); });
+
+  // 6. Output gain (smoothed), then map to the host's output channels.
   for (int i = 0; i < numFrames; ++i)
   {
     const double g = mOutputGain.next();
