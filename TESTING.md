@@ -16,6 +16,9 @@ machine/runner, date and commit.
 | Utilities | SPSC queue FIFO/capacity, move-only payloads, no allocation, 1,000,000 items across two threads | M1 |
 | Amp (M2) | Background load + metadata; engine output equals NAM Core's own output (< 1e-9); all host rates 44.1–192 kHz with resampling (level within 1 dB); damaged / missing / non-.nam / unknown-architecture files → error, previous capture keeps playing; missing file kept in state; clear → dry; crossfade continuity; Amp Off → dry; request coalescing; SR/block change during load and while active | M2 |
 | Amp (M2) | **Stress: capture switch every 3 ms for 1.5 s at 48 and 44.1 kHz — 0 allocations / 0 frees on the audio thread** (≈450 switches each) | M2 |
+| Cabinet DSP (M3) | FFT vs naive DFT and round trip; convolver = direct convolution (< 1e-10) for IR lengths 1–4800 and block sizes 1/7/64/100/512/random; impulse reproduces IR at sample 0 (zero latency); no allocation in process/reset; offline resampler 44.1↔48↔96↔192 kHz (error < 1e-3); WAV reader 16/24/32-int, float32/64, extensible, LIST chunk, stereo; rejects empty / non-WAVE / no data / ADPCM / zero-length / missing | M3 |
+| Cabinet (M3) | Mono IR applied exactly (unit-energy) on L and R; stereo IR keeps channels; 44.1 kHz IR at 44.1/48/96 kHz hosts keeps unit energy; blend 25 %; slot off → other slot full level; pan hard left; invert; level; Cab off → dry; HPF/LPF response (−40 dB at 100 Hz with HPF 1 kHz, −38 dB at 8 kHz with LPF 1 kHz, −3.0 dB at corner, transparent at extremes); missing / non-WAV / damaged / silent files → error, previous IR kept; 2 s IR truncated; clear → dry; SR change with IR active and loading | M3 |
+| Cabinet (M3) | **Stress: IR switch every 3 ms for 1.5 s (102 activations) — 0 allocations / 0 frees on the audio thread** | M3 |
 | NAM Core | Loads example WaveNet (blocks 64/256/1024) and LSTM captures, output finite and non-silent; missing and malformed files throw (no crash) | M1 |
 
 ## 2. Plugin validation

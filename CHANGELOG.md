@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased] — 0.3.0 (Milestone 3: cabinet)
+
+### Added
+- Two cabinet impulse-response slots (A/B) loading WAV files (16/24/32-bit PCM, 32/64-bit float,
+  mono or stereo, any sample rate — resampled to the project rate).
+- Zero-latency partitioned convolution; IRs up to 1 s (longer files are truncated and flagged).
+- Per slot: Level, Pan, Invert, On. Global: A/B Blend, Cab HPF, Cab LPF, Cab On.
+- IRs are normalised to unit energy so different IR files play at comparable loudness.
+- IR switching during playback is crossfaded (no clicks); errors keep the current IR.
+- Waveform thumbnail and file information for each slot.
+- The plugin output is now true stereo after the cabinet.
+- Project state v2 stores both IR paths (0.1.x and 0.2.x projects still open).
+
 ## [Unreleased] — 0.2.0 (Milestone 2: NAM integration)
 
 ### Added

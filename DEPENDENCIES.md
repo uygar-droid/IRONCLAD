@@ -16,11 +16,10 @@ at the commits below; nested NAM dependencies and the VST3 SDK are pinned in `Sc
 | └ Skia (optional) | prebuilt via iPlug2 script | — | Alternative renderer (evaluated M6) | Optional |
 | VST3 SDK | **v3.8.1_build_84** (fetched by `Scripts/bootstrap.sh`) | github.com/steinbergmedia/vst3sdk | VST3 format + `validator` tool | Yes |
 | Apple Cocoa / Metal / CoreText | system (Xcode SDK) | Apple | macOS VST3 GUI | System frameworks |
-| PFFFT (marton78 fork) | TBD in M3 | github.com/marton78/pffft | FFT for partitioned convolution | Yes |
-| r8brain-free-src | TBD in M3 | github.com/avaneev/r8brain-free-src | High-quality IR resampling | Yes |
-| FFTConvolver | `f2cdeb0` (2017) — reference only | github.com/HiFi-LoFi/FFTConvolver | Test oracle / design reference for convolver | Tests only (unless adopted) |
 | doctest | **v2.4.12** (`1da23a3`) | github.com/doctest/doctest | Unit tests | No (tests only) |
 
+Not used: PFFFT, r8brain-free-src and FFTConvolver (planned in Session 1; the FFT, convolver and IR
+resampler are IRONCLAD's own code, tested against direct computation — see ARCHITECTURE §6).
 Not used: **JUCE** (evaluated: `d60b7a7`, JUCE 9.0.5 — rejected for licensing, see ARCHITECTURE §1).
 Not used: the NAM plugin's **iPlug2 fork** (`sdatkinson/iPlug2`); IRONCLAD uses upstream iPlug2.
 

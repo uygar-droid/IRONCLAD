@@ -24,9 +24,6 @@ separately, with the evidence used.
 | └ iPlug2 WebView extra (only if used) | MIT | iPlug2 `LICENSE.txt` | Notice. |
 | VST3 SDK | **MIT since VST 3.8** (Oct 2025); GPLv3/proprietary options discontinued | Steinberg VST 3 Licensing page and 3.8 release notes | Notice. Using the "VST" name/logo is optional; if used, Steinberg's trademark usage guidelines apply. VST2 is **not** covered — IRONCLAD will not build VST2. |
 | Apple system frameworks (Cocoa, Metal) | Apple SDK terms | Xcode licence | Normal macOS development terms. |
-| PFFFT (planned, M3) | FFTPACK licence (BSD-like) + Pommier's changes under same terms | `pffft.c` header | Notice in docs; no use of NCAR/UCAR names for endorsement. Re-verify at pin time. |
-| r8brain-free-src (planned, M3) | MIT; bundles Ooura FFT and PFFFT | repo README | Notices for r8brain and its bundled code. Re-verify at pin time. |
-| FFTConvolver (reference/test) | MIT in current version (© 2017 HiFi-LoFi) | header of `FFTConvolver.h` at `f2cdeb0` | Notice if code is adopted. ⚠ Older copies (2012) circulating in other projects are **GPLv3** — use only the current upstream version. |
 
 **Result:** every component planned for the shipped binary is permissive or file-level copyleft
 (Eigen, unmodified). Nothing requires disclosing IRONCLAD's own source code. There is no

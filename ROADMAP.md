@@ -14,7 +14,7 @@ Last updated: 2026-11-12.
 | 0 | Planning, research, licensing | ✅ approved 2026-11-12 | Architecture docs |
 | 1 | Foundation | ✅ CI + REAPER (macOS) verified; Windows host test pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
 | 2 | NAM integration | ✅ CI + REAPER (macOS) verified; Windows host test pending | VST3 that loads and plays `.nam` captures |
-| 3 | Cabinet engine | ⬜ | + dual-IR zero-latency cabinet |
+| 3 | Cabinet engine | 🟠 implemented + unit-tested; CI + REAPER check pending | + dual-IR zero-latency cabinet |
 | 4 | Core effects | ⬜ | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
 | 5 | Presets, state, automation, MIDI | ⬜ | Reliable DAW-integrated plugin |
 | 6 | Graphical interface | ⬜ ⛔ Blender not available in this container | The photorealistic IRONCLAD UI |
@@ -74,9 +74,23 @@ Real-host gate: load several community captures in REAPER, play guitar, switch c
 playback without clicks, save/reopen the project.
 
 ## Milestone 3 — Cabinet
-WAV parser tests (16/24/32-int, 32-float, mono/stereo, corrupt files); r8brain IR resampling;
-zero-latency partitioned convolver verified against direct convolution (error < −120 dBFS);
-dual IR with level/pan/polarity; HPF/LPF; waveform thumbnail.
+
+| Task | Status |
+|---|---|
+| WAV reader: PCM 8/16/24/32-bit, float 32/64, WAVE_FORMAT_EXTENSIBLE, extra/odd chunks, mono/stereo/multichannel (first two used); clear errors for damaged/unsupported/empty/silent files | ✅ unit-tested |
+| IR resampling to the host rate (offline Kaiser-windowed sinc, on the loader thread) | ✅ unit-tested (sine error < −54 dB re peak) |
+| Zero-latency convolution: 64-tap direct head + uniformly partitioned FFT tail | ✅ unit-tested (equals direct convolution < 1e-10, any IR length / block size) |
+| Two IR slots: level, pan (balance), polarity, on/off; linear A/B blend | ✅ unit-tested |
+| HPF / LPF (12 dB/oct) on the cabinet output, transparent at their extreme settings | ✅ unit-tested (−3.0 dB at corner; bypassed at 20 Hz / 20 kHz) |
+| IR normalisation (unit energy), 1 s length cap with "truncated" flag | ✅ unit-tested |
+| Background loading, crossfaded IR switching, retire queue | ✅ unit-tested (102 switches, 0 audio-thread allocations) |
+| Plugin: LOAD IR / CLEAR per slot, name + format info + error, waveform thumbnail, global Blend/HPF/LPF/Cab | 🟡 CI + REAPER check pending |
+| IR paths saved in the project (state v2) | 🟡 REAPER check pending |
+| IR browser (folder library) | ⬜ M6 (final UI) |
+
+Real-host gate: load mono and stereo IRs (44.1 and 48 kHz files), blend two IRs, move
+HPF/LPF while playing, switch IRs during playback without clicks, save/reopen the project
+(including one saved with 0.2.0).
 
 ## Milestone 4 — Core effects
 Noise gate, compressor, overdrive, distortion, fuzz, 3-band + parametric EQ, chorus,

@@ -210,20 +210,26 @@ in (L/R or mono) -> input select/sum -> INPUT GAIN -> TUNER (analysis only)
   interpolation or conditioned architectures (NAM Core has `film.h` / `wavenet_condition_dsp`
   examples worth investigating in Milestone 7).
 
-## 6. Cabinet / IR engine
+## 6. Cabinet / IR engine (implemented in Milestone 3, `Source/Cabinet/`)
 
-- WAV loading on the loader thread (AudioDSPTools `wav.cpp`, extended or replaced if it lacks a
-  format we need — to be tested: 16/24/32-bit int, 32-bit float, mono/stereo, odd lengths).
-- Resample IR to host rate with **r8brain-free-src** (high-quality, MIT) on the loader thread.
-- Convolution: AudioDSPTools' `ImpulseResponse` is a direct time-domain FIR (O(N·L) per sample),
-  fine for short IRs, too expensive for long ones. IRONCLAD will implement a **uniformly
-  partitioned overlap-save convolver** on **PFFFT**, with the first partition done as a direct
-  FIR so the cabinet adds **zero latency**. HiFi-LoFi `FFTConvolver` (MIT) is the reference
-  implementation and test oracle.
-- Max IR length cap (default 500 ms, configurable) with a clear message when truncated.
-- Dual IR: two independent slots, each with level, pan, polarity, mute; blend = equal-power
-  crossfade; HPF/LPF (biquad, 12 dB/oct to start) after the sum.
-- Waveform thumbnail is computed on the loader thread and sent to the GUI as a small array.
+- **WAV loading** (`WavReader`) on the loader thread: PCM 8/16/24/32-bit, IEEE float 32/64-bit,
+  WAVE_FORMAT_EXTENSIBLE, any chunk order; first two channels are used.
+- **Resampling** to the host rate with an offline Kaiser-windowed sinc resampler (`Resample`),
+  on the loader thread, redone on every sample-rate change. (r8brain was planned; an own
+  ~60-line implementation was sufficient and is tested against analytic sines.)
+- **Convolution** (`Convolver`): taps 0–63 as a direct FIR per sample, the rest with uniformly
+  partitioned overlap-save FFT convolution (partition 64, FFT 128, own radix-2 `Fft`). The tail
+  for the current 64-sample frame depends only on completed frames, so it is computed one frame
+  ahead: **zero latency** at any host block size. Cost grows linearly with IR length; the 1 s cap
+  keeps the worst case bounded (non-uniform partitions are a Milestone-7 optimisation).
+- **Normalisation:** IRs are scaled to unit energy (0 dB broadband gain).
+- **Slots** (`CabStage`): two independent slots with level, balance-pan, polarity and on/off,
+  crossfaded IR switching (25 ms, equal power), retire queue like the amp stage.
+- **Blend:** linear between A and B (keeps the level of similar IRs, the common case of two mics on
+  one cabinet); a single active slot plays at full level.
+- **Filters:** 2nd-order HPF/LPF on the cabinet sum; fully bypassed (crossfaded) at their extreme
+  settings so the default is transparent.
+- With the cabinet off or no IR loaded, the dry (amp) signal passes through, crossfaded.
 
 ## 7. Effects
 
