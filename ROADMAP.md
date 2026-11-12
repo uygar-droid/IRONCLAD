@@ -13,7 +13,7 @@ Last updated: 2026-11-12.
 |---|---|---|---|
 | 0 | Planning, research, licensing | ✅ approved 2026-11-12 | Architecture docs |
 | 1 | Foundation | ✅ CI + REAPER (macOS) verified; Windows host test pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
-| 2 | NAM integration | 🟡 CI ✅ (both OSes); REAPER check pending | VST3 that loads and plays `.nam` captures |
+| 2 | NAM integration | ✅ CI + REAPER (macOS) verified; Windows host test pending | VST3 that loads and plays `.nam` captures |
 | 3 | Cabinet engine | ⬜ | + dual-IR zero-latency cabinet |
 | 4 | Core effects | ⬜ | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
 | 5 | Presets, state, automation, MIDI | ⬜ | Reliable DAW-integrated plugin |
@@ -66,7 +66,7 @@ Acceptance criteria (shown with real output):
 | Metadata (name, architecture, rate, gear, tone type, modeled by) | ✅ unit-tested |
 | Output normalisation to −18 dB loudness (when the capture provides loudness) | ✅ unit-tested |
 | Gain staging params: Amp On, Amp Input, Amp Output, Normalize | ✅ engine-tested |
-| Plugin: LOAD CAPTURE / CLEAR, info + error display, capture path saved in the project | 🟡 builds + validates in CI; REAPER check pending |
+| Plugin: LOAD CAPTURE / CLEAR, info + error display, capture path saved in the project | ✅ REAPER (macOS, user, 2026-11-12) |
 | Input calibration (interface dBu ↔ capture `input_level_dbu`) | ⬜ moved to M5 (needs a per-user setting) |
 | Capture browser (folder library view) | ⬜ moved to M6 (part of the final UI); M2 uses the OS file dialog |
 

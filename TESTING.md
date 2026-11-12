@@ -58,6 +58,19 @@ Not a product target; used only to exercise platform-independent engine code bef
 Earlier runs of the same day found and fixed two CI-script defects (wrong `lipo` argument
 order; VST3-SDK cache restored before submodules). No product-code defect was found by CI.
 
+### 2026-11-12 — Real host: REAPER on the user's Mac, M2 build from run 43110255628
+Executed by the user with a real guitar and community `.nam` captures:
+- ✅ Project saved with the M1 build (0.1.x state format) opens correctly.
+- ✅ LOAD CAPTURE loads a `.nam`; amp sound is heard; name and metadata are shown.
+- ✅ Switching captures during playback: clean, no click or dropout.
+- ✅ Amp Input, Amp Output, Amp ON/OFF and Normalize behave as expected.
+- ✅ The macOS file dialog only allows `.nam` files (others greyed out), so wrong-type files
+  cannot be chosen from the UI; the engine-level error path is covered by unit tests.
+- ✅ Project save → reopen restores the same capture and all settings.
+
+Note: the user first saw the M1 editor after installing M2 — REAPER keeps an already-loaded
+plugin binary in memory until it quits. INSTALL.md now says to quit the DAW before updating.
+
 ### 2026-11-12 — GitHub Actions run 43110255628, commit `54b62e2` (M2)
 | | Windows x64 | macOS universal |
 |---|---|---|

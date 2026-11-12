@@ -42,6 +42,12 @@ IRONCLAD is a VST3 plugin for **Windows 10/11 (64-bit)** and **macOS 13 or newer
 - Arm the track and enable input monitoring.
 - Use the smallest audio buffer your interface handles reliably (64–256 samples) for low latency.
 
+## Updating to a newer build
+
+Quit your DAW completely first (macOS: ⌘Q). A DAW keeps an already-loaded plugin in memory,
+so replacing the file while it runs has no effect. Delete the old `IRONCLAD.vst3`, copy the
+new one, repeat the quarantine step on macOS, then *Clear cache/re-scan*.
+
 ## Uninstall
 
 Delete `IRONCLAD.vst3` from the folder you copied it to.
