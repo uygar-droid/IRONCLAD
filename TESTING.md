@@ -64,6 +64,13 @@ Not a product target; used only to exercise platform-independent engine code bef
 Earlier runs of the same day found and fixed two CI-script defects (wrong `lipo` argument
 order; VST3-SDK cache restored before submodules). No product-code defect was found by CI.
 
+### 2026-11-13 — GitHub Actions run 43317318965, commit `2518a16` (M4, 0.4.0)
+| | Windows x64 | macOS universal (Intel runner) |
+|---|---|---|
+| Build (Release) | ✅ | ✅ `x86_64 arm64`, signature valid |
+| `ironclad_tests` | ✅ 66/66 cases | ✅ 66/66 cases |
+| Steinberg VST3 validator | ✅ 47/0 | ✅ 47/0 |
+
 ### 2026-11-13 — Real host: REAPER on the user's Mac, 0.3.0 from run 43312249410
 Executed by the user with a real guitar:
 - ✅ Project saved with 0.2.0 opens; capture restored.

@@ -15,7 +15,7 @@ Last updated: 2026-11-12.
 | 1 | Foundation | ✅ CI + REAPER (macOS) verified; Windows host test pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
 | 2 | NAM integration | ✅ CI + REAPER (macOS) verified; Windows host test pending | VST3 that loads and plays `.nam` captures |
 | 3 | Cabinet engine | ✅ CI + REAPER (macOS) verified; Windows host test pending | + dual-IR zero-latency cabinet |
-| 4 | Core effects | 🟠 implemented + unit-tested; CI + REAPER check pending | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
+| 4 | Core effects | 🟡 CI ✅ (both OSes); REAPER check pending | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
 | 5 | Presets, state, automation, MIDI | ⬜ | Reliable DAW-integrated plugin |
 | 6 | Graphical interface | ⬜ ⛔ Blender not available in this container | The photorealistic IRONCLAD UI |
 | 7 | Advanced features | ⬜ | Remaining effects, routing, optimisation |
