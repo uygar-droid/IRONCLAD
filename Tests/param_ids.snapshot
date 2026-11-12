@@ -6,3 +6,15 @@
 3 amp.input_db
 4 amp.output_db
 5 amp.normalize
+6 cab.enabled
+7 cab.a.enabled
+8 cab.a.level_db
+9 cab.a.pan
+10 cab.a.invert
+11 cab.b.enabled
+12 cab.b.level_db
+13 cab.b.pan
+14 cab.b.invert
+15 cab.blend
+16 cab.hpf_hz
+17 cab.lpf_hz

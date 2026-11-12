@@ -28,7 +28,18 @@ namespace iplug
 {
 inline constexpr double PI = 3.1415926535897932384626433832795;
 }
+#if defined(__GNUC__) || defined(__clang__)
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wsign-compare"
+  #pragma GCC diagnostic ignored "-Wpedantic"
+  #if !defined(__clang__)
+    #pragma GCC diagnostic ignored "-Wchanges-meaning"
+  #endif
+#endif
 #include "dsp/ResamplingContainer/ResamplingContainer.h"
+#if defined(__GNUC__) || defined(__clang__)
+  #pragma GCC diagnostic pop
+#endif
 
 #include "NAM/dsp.h"
 

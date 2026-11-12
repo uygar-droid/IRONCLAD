@@ -23,12 +23,17 @@ void Engine::prepare(const ProcessSpec& spec)
   mSpec.sampleRate = spec.sampleRate > 0.0 ? spec.sampleRate : 48000.0;
 
   mMono.assign(static_cast<std::size_t>(mSpec.maxBlockSize), 0.0);
+  mLeft.assign(static_cast<std::size_t>(mSpec.maxBlockSize), 0.0);
+  mRight.assign(static_cast<std::size_t>(mSpec.maxBlockSize), 0.0);
 
   mInputGain.reset(mSpec.sampleRate, paramSpec(kParamInputGain).smoothingMs,
                    dbToGain(getParameter(kParamInputGain)));
   mOutputGain.reset(mSpec.sampleRate, paramSpec(kParamOutputGain).smoothingMs,
                     dbToGain(getParameter(kParamOutputGain)));
   pullAmpTargets();
+  pullCabTargets();
+  mIrLoader.reconfigure(mSpec.sampleRate,
+                        [this](std::uint64_t generation) { mCab.prepare(mSpec.sampleRate, mSpec.maxBlockSize, generation); });
   mLoader.reconfigure(mSpec.sampleRate, mSpec.maxBlockSize,
                       [this](std::uint64_t generation) { mAmp.prepare(mSpec.sampleRate, mSpec.maxBlockSize, generation); });
   mPrepared = true;
@@ -54,12 +59,41 @@ void Engine::reset() noexcept
   mInputGain.setImmediate(dbToGain(getParameter(kParamInputGain)));
   mOutputGain.setImmediate(dbToGain(getParameter(kParamOutputGain)));
   std::fill(mMono.begin(), mMono.end(), 0.0);
+  std::fill(mLeft.begin(), mLeft.end(), 0.0);
+  std::fill(mRight.begin(), mRight.end(), 0.0);
 }
 
 std::string Engine::captureStatePath() const
 {
   const CaptureStatus st = mLoader.status();
   return st.hasActive ? st.active.path : st.requestedPath;
+}
+
+std::string Engine::irStatePath(int slot) const
+{
+  if (slot < 0 || slot >= CabStage::kSlots)
+    return {};
+  const IrStatus st = mIrLoader.status();
+  const auto& s = st.slot[slot];
+  return s.hasActive ? s.active.path : s.requestedPath;
+}
+
+void Engine::pullCabTargets() noexcept
+{
+  CabTargets t;
+  t.enabled = getParameter(kParamCabEnabled) >= 0.5;
+  t.slotEnabled[0] = getParameter(kParamCabAEnabled) >= 0.5;
+  t.slotEnabled[1] = getParameter(kParamCabBEnabled) >= 0.5;
+  t.levelDb[0] = getParameter(kParamCabALevel);
+  t.levelDb[1] = getParameter(kParamCabBLevel);
+  t.pan[0] = getParameter(kParamCabAPan) / 100.0;
+  t.pan[1] = getParameter(kParamCabBPan) / 100.0;
+  t.invert[0] = getParameter(kParamCabAInvert) >= 0.5;
+  t.invert[1] = getParameter(kParamCabBInvert) >= 0.5;
+  t.blend = getParameter(kParamCabBlend) / 100.0;
+  t.highPassHz = getParameter(kParamCabHighPass);
+  t.lowPassHz = getParameter(kParamCabLowPass);
+  mCab.setTargets(t);
 }
 
 void Engine::pullAmpTargets() noexcept
@@ -71,6 +105,7 @@ void Engine::pullAmpTargets() noexcept
 void Engine::pullParameterTargets() noexcept
 {
   pullAmpTargets();
+  pullCabTargets();
   // dB -> linear conversion happens once per block per parameter, not per sample.
   mInputGain.setTarget(dbToGain(getParameter(kParamInputGain)));
   mOutputGain.setTarget(dbToGain(getParameter(kParamOutputGain)));
@@ -148,19 +183,34 @@ void Engine::processChunk(const double* const* inputs, int numInputs, double* co
   for (int i = 0; i < numFrames; ++i)
     mono[i] *= mInputGain.next();
 
-  // 3. Signal chain. Amp (NAM capture); cabinet and effects follow in later milestones.
+  // 3. Signal chain: amp (NAM capture, mono) -> cabinet (IRs, mono in / stereo out).
   mAmp.process(mono, numFrames);
+  double* left = mLeft.data();
+  double* right = mRight.data();
+  mCab.process(mono, left, right, numFrames);
 
-  // 4. Output gain (smoothed), then fan out to every output channel.
+  // 4. Output gain (smoothed), then map to the host's output channels.
   for (int i = 0; i < numFrames; ++i)
-    mono[i] *= mOutputGain.next();
+  {
+    const double g = mOutputGain.next();
+    left[i] *= g;
+    right[i] *= g;
+  }
 
+  if (numOutputs == 1)
+  {
+    if (double* out = outputs[0])
+      for (int i = 0; i < numFrames; ++i)
+        out[offset + i] = 0.5 * (left[i] + right[i]);
+    return;
+  }
   for (int c = 0; c < numOutputs; ++c)
   {
     double* out = outputs[c];
     if (out == nullptr)
       continue;
-    std::copy(mono, mono + numFrames, out + offset);
+    const double* src = (c % 2 == 0) ? left : right;
+    std::copy(src, src + numFrames, out + offset);
   }
 }
 

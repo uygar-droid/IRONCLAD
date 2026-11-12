@@ -1,31 +1,18 @@
 #include "Amp/AmpModel.h"
 
+#include <cctype>
 #include <filesystem>
 #include <system_error>
 
 #include "Amp/ResamplingModel.h"
 #include "NAM/get_dsp.h"
 #include "NAM/nam_file.h"
+#include "Utilities/Paths.h"
 
 namespace ironclad
 {
 namespace
 {
-std::filesystem::path toPath(const std::string& utf8)
-{
-#if defined(__cpp_char8_t)
-  return std::filesystem::path(std::u8string(reinterpret_cast<const char8_t*>(utf8.data()), utf8.size()));
-#else
-  return std::filesystem::u8path(utf8);
-#endif
-}
-
-std::string toUtf8(const std::filesystem::path& p)
-{
-  const auto u8 = p.u8string();
-  return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
-}
-
 std::string metaString(const nlohmann::json& meta, const char* key)
 {
   if (meta.is_object())
@@ -43,8 +30,8 @@ AmpModel::~AmpModel() = default;
 
 std::unique_ptr<AmpModel> AmpModel::load(const std::string& utf8Path)
 {
-  const std::filesystem::path path = toPath(utf8Path);
-  const std::string fileName = toUtf8(path.filename());
+  const std::filesystem::path path = pathFromUtf8(utf8Path);
+  const std::string fileName = utf8FromPath(path.filename());
 
   std::error_code ec;
   if (utf8Path.empty() || !std::filesystem::exists(path, ec))
@@ -52,7 +39,7 @@ std::unique_ptr<AmpModel> AmpModel::load(const std::string& utf8Path)
   if (std::filesystem::is_directory(path, ec))
     throw CaptureLoadError("Not a capture file: " + fileName, "Path is a directory: " + utf8Path);
 
-  std::string ext = toUtf8(path.extension());
+  std::string ext = utf8FromPath(path.extension());
   for (auto& c : ext)
     c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   if (ext != ".nam")
@@ -106,7 +93,7 @@ std::unique_ptr<AmpModel> AmpModel::load(const std::string& utf8Path)
   }
   info.displayName = metaString(meta, "name");
   if (info.displayName.empty())
-    info.displayName = toUtf8(path.stem());
+    info.displayName = utf8FromPath(path.stem());
 
   if (dsp->HasLoudness())
     info.loudnessDb = dsp->GetLoudness();

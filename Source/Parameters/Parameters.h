@@ -45,6 +45,7 @@ struct ParamSpec
   ParamUnit unit;
   double smoothingMs; // 0 = applied without smoothing
   std::uint32_t flags;
+  bool logScale = false; // host/UI knob taper (frequencies)
 };
 
 enum ParamIndex : int
@@ -55,6 +56,18 @@ enum ParamIndex : int
   kParamAmpInputGain = 3,
   kParamAmpOutputGain = 4,
   kParamAmpNormalize = 5,
+  kParamCabEnabled = 6,
+  kParamCabAEnabled = 7,
+  kParamCabALevel = 8,
+  kParamCabAPan = 9,
+  kParamCabAInvert = 10,
+  kParamCabBEnabled = 11,
+  kParamCabBLevel = 12,
+  kParamCabBPan = 13,
+  kParamCabBInvert = 14,
+  kParamCabBlend = 15,
+  kParamCabHighPass = 16,
+  kParamCabLowPass = 17,
   kNumParams
 };
 
@@ -67,6 +80,20 @@ inline constexpr std::array<ParamSpec, kNumParams> kParamSpecs{{
   {kParamAmpInputGain, "amp.input_db", "Amp Input", -24.0, 24.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
   {kParamAmpOutputGain, "amp.output_db", "Amp Output", -40.0, 12.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
   {kParamAmpNormalize, "amp.normalize", "Normalize", 0.0, 1.0, 1.0, 1.0, ParamUnit::Boolean, 30.0, kParamNoFlags},
+  // Cabinet (impulse responses). Slot A and B are independent; Blend mixes them with equal
+  // power when both are loaded. HPF/LPF act on the cabinet output.
+  {kParamCabEnabled, "cab.enabled", "Cab On", 0.0, 1.0, 1.0, 1.0, ParamUnit::Boolean, 20.0, kParamNoFlags},
+  {kParamCabAEnabled, "cab.a.enabled", "IR A On", 0.0, 1.0, 1.0, 1.0, ParamUnit::Boolean, 20.0, kParamNoFlags},
+  {kParamCabALevel, "cab.a.level_db", "IR A Level", -40.0, 12.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
+  {kParamCabAPan, "cab.a.pan", "IR A Pan", -100.0, 100.0, 0.0, 1.0, ParamUnit::Percent, 30.0, kParamNoFlags},
+  {kParamCabAInvert, "cab.a.invert", "IR A Invert", 0.0, 1.0, 0.0, 1.0, ParamUnit::Boolean, 20.0, kParamNoFlags},
+  {kParamCabBEnabled, "cab.b.enabled", "IR B On", 0.0, 1.0, 1.0, 1.0, ParamUnit::Boolean, 20.0, kParamNoFlags},
+  {kParamCabBLevel, "cab.b.level_db", "IR B Level", -40.0, 12.0, 0.0, 0.1, ParamUnit::Decibels, 30.0, kParamNoFlags},
+  {kParamCabBPan, "cab.b.pan", "IR B Pan", -100.0, 100.0, 0.0, 1.0, ParamUnit::Percent, 30.0, kParamNoFlags},
+  {kParamCabBInvert, "cab.b.invert", "IR B Invert", 0.0, 1.0, 0.0, 1.0, ParamUnit::Boolean, 20.0, kParamNoFlags},
+  {kParamCabBlend, "cab.blend", "IR Blend", 0.0, 100.0, 50.0, 1.0, ParamUnit::Percent, 30.0, kParamNoFlags},
+  {kParamCabHighPass, "cab.hpf_hz", "Cab HPF", 20.0, 1000.0, 20.0, 1.0, ParamUnit::Hertz, 30.0, kParamNoFlags, true},
+  {kParamCabLowPass, "cab.lpf_hz", "Cab LPF", 1000.0, 20000.0, 20000.0, 1.0, ParamUnit::Hertz, 30.0, kParamNoFlags, true},
 }};
 
 constexpr const ParamSpec& paramSpec(int index) noexcept { return kParamSpecs[static_cast<std::size_t>(index)]; }

@@ -11,10 +11,26 @@ add_library(ironclad_engine STATIC
   Amp/CaptureLoader.h
   Amp/ResamplingModel.h
   Audio/Engine.cpp
+  Cabinet/Biquad.h
+  Cabinet/CabStage.cpp
+  Cabinet/CabStage.h
+  Cabinet/Convolver.cpp
+  Cabinet/Convolver.h
+  Cabinet/Fft.cpp
+  Cabinet/Fft.h
+  Cabinet/ImpulseResponse.cpp
+  Cabinet/ImpulseResponse.h
+  Cabinet/IrLoader.cpp
+  Cabinet/IrLoader.h
+  Cabinet/Resample.cpp
+  Cabinet/Resample.h
+  Cabinet/WavReader.cpp
+  Cabinet/WavReader.h
   Audio/Engine.h
   Audio/SmoothedValue.h
   Parameters/Parameters.h
   Utilities/Denormals.h
+  Utilities/Paths.h
   Utilities/SpscQueue.h)
 
 target_include_directories(ironclad_engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

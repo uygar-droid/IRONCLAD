@@ -16,6 +16,8 @@
 #include "Amp/AmpStage.h"
 #include "Amp/CaptureLoader.h"
 #include "Audio/SmoothedValue.h"
+#include "Cabinet/CabStage.h"
+#include "Cabinet/IrLoader.h"
 #include "Parameters/Parameters.h"
 
 namespace ironclad
@@ -61,14 +63,26 @@ public:
   /// loaded (e.g. file missing on this machine) - the one that was requested, so it is
   /// not silently dropped from the project.
   std::string captureStatePath() const;
-  bool waitForLoader(int timeoutMs) const { return mLoader.waitUntilIdle(std::chrono::milliseconds(timeoutMs)); }
+  bool waitForLoader(int timeoutMs) const
+  {
+    return mLoader.waitUntilIdle(std::chrono::milliseconds(timeoutMs))
+           && mIrLoader.waitUntilIdle(std::chrono::milliseconds(timeoutMs));
+  }
   const AmpStage& ampStage() const noexcept { return mAmp; }
+
+  // ---- Cabinet IR management (UI / host threads) ----
+  void loadIr(int slot, const std::string& utf8Path) { mIrLoader.requestLoad(slot, utf8Path); }
+  void clearIr(int slot) { mIrLoader.requestClear(slot); }
+  IrStatus irStatus() const { return mIrLoader.status(); }
+  std::string irStatePath(int slot) const;
+  const CabStage& cabStage() const noexcept { return mCab; }
 
 private:
   void processChunk(const double* const* inputs, int numInputs, double* const* outputs, int numOutputs,
                     int offset, int numFrames) noexcept;
   void pullParameterTargets() noexcept;
   void pullAmpTargets() noexcept;
+  void pullCabTargets() noexcept;
 
   ProcessSpec mSpec{};
   bool mPrepared = false;
@@ -78,9 +92,12 @@ private:
   SmoothedValue mOutputGain; // linear
 
   std::vector<double> mMono; // maxBlockSize, allocated in prepare()
+  std::vector<double> mLeft, mRight;
 
   AmpStage mAmp;
   CaptureLoader mLoader{mAmp.readyQueue(), mAmp.retireQueue()}; // declared after mAmp: destroyed first
+  CabStage mCab;
+  IrLoader mIrLoader{mCab.readyQueue(), mCab.retireQueue()};     // declared after mCab: destroyed first
 };
 
 double dbToGain(double db) noexcept;

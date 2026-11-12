@@ -3,6 +3,9 @@ add_executable(ironclad_tests
   AllocationTracking.cpp
   AllocationTracking.h
   TestAmp.cpp
+  TestCab.cpp
+  TestCabinetDsp.cpp
+  WavTestUtils.h
   TestEngine.cpp
   TestNamSmoke.cpp
   TestParameters.cpp
