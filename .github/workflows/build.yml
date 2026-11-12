@@ -33,7 +33,7 @@ jobs:
             preset: windows-ninja-release
             artifact: IRONCLAD-windows-x64
           - name: macOS universal
-            os: macos-15
+            os: macos-15-intel   # arm64 runners repeatedly unavailable (Nov 2026); Intel builds the same universal binary
             preset: macos-ninja-release
             artifact: IRONCLAD-macos-universal
     defaults:
