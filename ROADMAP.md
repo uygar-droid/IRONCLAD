@@ -14,7 +14,7 @@ Last updated: 2026-11-12.
 | 0 | Planning, research, licensing | ✅ approved 2026-11-12 | Architecture docs |
 | 1 | Foundation | ✅ CI + REAPER (macOS) verified; Windows host test pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
 | 2 | NAM integration | ✅ CI + REAPER (macOS) verified; Windows host test pending | VST3 that loads and plays `.nam` captures |
-| 3 | Cabinet engine | 🟡 CI ✅ (both OSes); REAPER check pending | + dual-IR zero-latency cabinet |
+| 3 | Cabinet engine | ✅ CI + REAPER (macOS) verified; Windows host test pending | + dual-IR zero-latency cabinet |
 | 4 | Core effects | ⬜ | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
 | 5 | Presets, state, automation, MIDI | ⬜ | Reliable DAW-integrated plugin |
 | 6 | Graphical interface | ⬜ ⛔ Blender not available in this container | The photorealistic IRONCLAD UI |
@@ -84,8 +84,8 @@ playback without clicks, save/reopen the project.
 | HPF / LPF (12 dB/oct) on the cabinet output, transparent at their extreme settings | ✅ unit-tested (−3.0 dB at corner; bypassed at 20 Hz / 20 kHz) |
 | IR normalisation (unit energy), 1 s length cap with "truncated" flag | ✅ unit-tested |
 | Background loading, crossfaded IR switching, retire queue | ✅ unit-tested (102 switches, 0 audio-thread allocations) |
-| Plugin: LOAD IR / CLEAR per slot, name + format info + error, waveform thumbnail, global Blend/HPF/LPF/Cab | 🟡 CI + REAPER check pending |
-| IR paths saved in the project (state v2) | 🟡 REAPER check pending |
+| Plugin: LOAD IR / CLEAR per slot, name + format info + error, waveform thumbnail, global Blend/HPF/LPF/Cab | ✅ REAPER (macOS, user, 2026-11-13) |
+| IR paths saved in the project (state v2); 0.2.0 projects open | ✅ REAPER (macOS, user, 2026-11-13) |
 | IR browser (folder library) | ⬜ M6 (final UI) |
 
 Real-host gate: load mono and stereo IRs (44.1 and 48 kHz files), blend two IRs, move

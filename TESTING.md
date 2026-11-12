@@ -61,6 +61,16 @@ Not a product target; used only to exercise platform-independent engine code bef
 Earlier runs of the same day found and fixed two CI-script defects (wrong `lipo` argument
 order; VST3-SDK cache restored before submodules). No product-code defect was found by CI.
 
+### 2026-11-13 — Real host: REAPER on the user's Mac, 0.3.0 from run 43312249410
+Executed by the user with a real guitar:
+- ✅ Project saved with 0.2.0 opens; capture restored.
+- ✅ Mono IR in slot A: cabinet sound, waveform and file information shown.
+- ✅ 44.1 kHz IR works (resampled); IRs in both slots work together.
+- ✅ A/B Blend works.
+- ✅ Level, Pan, Invert, On, Cab HPF and Cab LPF behave correctly while playing; no crackle or dropouts.
+- ✅ Switching IRs during playback: no click.
+- ✅ Save → close → reopen: capture and both IRs restored.
+
 ### 2026-11-13 — GitHub Actions run 43312249410, commit `dedc71a` (M3, 0.3.0)
 | | Windows x64 | macOS universal (built on the `macos-15-intel` runner) |
 |---|---|---|
