@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased] — 0.4.0 (Milestone 4: core effects)
+
+### Added
+- STOMP: Noise Gate, Compressor, Boost, Overdrive, Distortion, Fuzz, Wah (before the amp).
+- POST FX: 3-band EQ, Chorus, Delay (Digital / Analog / Ping-Pong, host tempo sync with note
+  divisions, TAP button), Reverb (Room / Hall / Plate) — after the cabinet.
+- Editor pages STOMP / AMP / CAB / POST FX (temporary functional design until Milestone 6).
+- 54 automatable parameters (stable IDs).
+
+### Fixed (found by the new tests before release)
+- Noise gate Release now means "time to close" (−60 dB), not a time constant.
+- Fuzz amount had almost no effect (range started fully saturated).
+- Plate reverb decayed ~15 % longer than set at short decay times; decay calibrated.
+
 ## [Unreleased] — 0.3.0 (Milestone 3: cabinet)
 
 ### Added

@@ -248,9 +248,11 @@ public:
 };
 ```
 
-Bypass is implemented by the chain with a short crossfade (no clicks), so every effect gets it
+Bypass is implemented by the chain (`Effects/BypassSlot.h`) with a 20 ms crossfade; while fully
+off an effect is skipped and it is reset before it becomes audible again, so every effect gets it
 for free; wet/dry and level are per-effect parameters where meaningful. Nonlinear effects
-(drive/fuzz) get oversampling as a per-effect option, measured in Milestone 4.
+(drive/fuzz) use first-order ADAA instead of oversampling: no latency to report, about 14 dB
+less aliasing than a naive clipper in the test case (measured in Milestone 4).
 
 ## 8. Parameters
 

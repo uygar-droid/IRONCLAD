@@ -15,7 +15,7 @@ Last updated: 2026-11-12.
 | 1 | Foundation | ✅ CI + REAPER (macOS) verified; Windows host test pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
 | 2 | NAM integration | ✅ CI + REAPER (macOS) verified; Windows host test pending | VST3 that loads and plays `.nam` captures |
 | 3 | Cabinet engine | ✅ CI + REAPER (macOS) verified; Windows host test pending | + dual-IR zero-latency cabinet |
-| 4 | Core effects | ⬜ | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
+| 4 | Core effects | 🟠 implemented + unit-tested; CI + REAPER check pending | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
 | 5 | Presets, state, automation, MIDI | ⬜ | Reliable DAW-integrated plugin |
 | 6 | Graphical interface | ⬜ ⛔ Blender not available in this container | The photorealistic IRONCLAD UI |
 | 7 | Advanced features | ⬜ | Remaining effects, routing, optimisation |
@@ -93,9 +93,27 @@ HPF/LPF while playing, switch IRs during playback without clicks, save/reopen th
 (including one saved with 0.2.0).
 
 ## Milestone 4 — Core effects
-Noise gate, compressor, overdrive, distortion, fuzz, 3-band + parametric EQ, chorus,
-digital/analog delay (host sync, tap tempo), room/hall/plate reverb, wah. Each with impulse/
-step/sine tests, extreme-setting stability tests and a bypass click test.
+
+Fixed serial chain (spec §5): Gate → Compressor → Boost → Overdrive → Distortion → Fuzz → Wah →
+**Amp** → **Cab** → EQ → Chorus → Delay → Reverb. Every effect: on/off with a 20 ms crossfade
+(skipped and reset while off), smoothed parameters, own source file and tests.
+
+| Effect | Implementation | Status |
+|---|---|---|
+| Noise gate | peak detector, 6 dB hysteresis, 15 ms hold, release = time to −60 dB | ✅ unit-tested |
+| Compressor | feed-forward, 6 dB soft knee, attack/release, makeup, parallel mix | ✅ unit-tested (steady-state gain = formula) |
+| Boost | clean gain 0–24 dB, Bright shelf | ✅ chain-tested |
+| Overdrive / Distortion / Fuzz | shared drive core with three voicings, ADAA anti-aliasing | ✅ unit-tested (harmonics rise with drive; ADAA −14 dB aliasing vs naive) |
+| Wah | TPT state-variable band-pass 350 Hz–2.2 kHz, resonance, mix | ✅ unit-tested (resonance follows the pedal) |
+| EQ | Bass shelf 120 Hz, sweepable Mid peak, Treble shelf 3.5 kHz, Level | ✅ unit-tested (band gains exact within 2 %) |
+| Chorus | stereo, cubic-interpolated modulated delays | ✅ unit-tested |
+| Delay | Digital / Analog / Ping-Pong, ms or host-synced divisions, tap tempo, feedback filters, glide | ✅ unit-tested (echo timing exact, feedback within 2 %) |
+| Reverb | 8-line FDN, Room / Hall / Plate, decay, pre-delay, damping, mix | ✅ unit-tested (RT60 within 10 % of setting, stable at 10 s, click-free type change) |
+| Editor pages STOMP / AMP / CAB / POST FX, TAP button | — | 🟡 CI + REAPER check pending |
+
+Moved to Milestone 7 (as planned in the spec): octaver, pitch shifter, parametric/graphic EQ,
+phaser, flanger, tremolo, vibrato, rotary, envelope filter, tape/stereo delay, spring reverb,
+reorderable routing.
 
 ## Milestone 5 — Presets, state, automation, MIDI
 JSON schema v1 + migrations, missing-file resolver, factory/user libraries, categories,
