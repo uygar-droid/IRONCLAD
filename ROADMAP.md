@@ -176,9 +176,29 @@ fixed direction (upper left); the knob rotates under it. Layers, bottom to top:
 - First step of M6: **one prototype knob** with placeholder art showing all five layers and the
   tunable curves, tested by the owner in REAPER, before the full interface is drawn.
 
+**Page navigation (agreed 2026-11-13).** An icon bar at the **top** of the editor (it is at the
+bottom in the temporary UI) selects **five** pages, in signal order:
+
+| # | Page | Content | Icon to provide (owner) |
+|---|---|---|---|
+| 1 | Pre-amp pedals (STOMP) | gate, comp, boost, OD, distortion, fuzz, wah | pedal |
+| 2 | Amp head (AMP) | capture, amp gain staging, calibration, volume pedal | amp head |
+| 3 | Cabinet (CAB) | IR A / B, blend, filters | speaker |
+| 4 | **EQ** | the EQ — **its own page**, moved out of POST FX | EQ sliders |
+| 5 | Post FX | chorus, delay, reverb | post effects |
+
+- Icons: monochrome light line icons on transparent background, one file per page, **SVG
+  preferred** (sharp at every scale; IGraphics draws SVG), otherwise PNG at 1× and 2×.
+  Same canvas size for all five.
+- States: normal and selected. The selected page is marked by a small dot under the icon
+  (drawn by the code, so no extra image is needed); hover brightening is also done in code.
+  If the owner wants a different selected look, a separate "selected" icon per page.
+- The bar shares the top area with the M5 preset bar; the layout sheet must place both.
+- Original icons only (the owner's reference screenshot is for layout, not to copy).
+
 ### Other M6 work
-- Pages STOMP / AMP / CAB / POST FX with the final art; preset bar restyled (functions from M5
-  stay as they are); input / output meters; tuner; 100–200 % scaling with the 2× assets.
+- The five pages above with the final art; preset bar restyled (functions from M5 stay as they
+  are); input / output meters; tuner; 100–200 % scaling with the 2× assets.
 - Every control keeps its parameter binding, automation and MIDI learn.
 
 ## Milestone 7 — Advanced
