@@ -72,6 +72,13 @@ the user (~60 % with 0.4.0) depends on the IR lengths used and on REAPER's buffe
 
 ## 5. Recorded results
 
+### 2026-11-13 — GitHub Actions run 43416941491 (0.5.2, macOS shared preset folder)
+
+Windows x64 and macOS universal (macOS job re-run: the first attempt never got a runner and was
+cancelled by GitHub after 15 min): built, `ironclad_tests` **83/83**, Steinberg validator
+**47 passed, 0 failed**. User REAPER test of 0.5.1 (2026-11-13): preset save works, the preset is
+restored after closing and reopening REAPER, browser listing correct.
+
 ### 2026-11-13 — GitHub Actions run 43394437142 (0.5.1, preset folder layout)
 
 Windows x64 and macOS universal: built, `ironclad_tests` **82/82** (new: folder layout,
