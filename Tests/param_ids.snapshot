@@ -72,3 +72,6 @@
 69 reverb.predelay_ms
 70 reverb.damping
 71 reverb.mix
+72 volume.position
+73 amp.calibrate
+74 amp.interface_dbu

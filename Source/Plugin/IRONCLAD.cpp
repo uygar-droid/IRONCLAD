@@ -30,6 +30,7 @@ const char* UnitLabel(ironclad::ParamUnit unit)
   case ironclad::ParamUnit::Hertz: return "Hz";
   case ironclad::ParamUnit::Seconds: return "s";
   case ironclad::ParamUnit::Ratio: return ":1";
+  case ironclad::ParamUnit::Dbu: return "dBu";
   default: return "";
   }
 }

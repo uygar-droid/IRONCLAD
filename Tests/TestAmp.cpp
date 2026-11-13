@@ -402,3 +402,45 @@ TEST_CASE("Stress: capture switches every few milliseconds with zero allocations
     CHECK(counts.deallocations == 0);
   }
 }
+
+TEST_CASE("Input calibration scales the capture input by interface level minus capture level")
+{
+  // lstm.nam stores input_level_dbu = 18.3. With calibration on and the interface at
+  // 24.3 dBu the capture must hear exactly +6 dB, i.e. the same as Amp Input +6 dB.
+  auto render = [](bool calibrate, double interfaceDbu, double ampInputDb) {
+    Rig rig(48000.0, 64);
+    rig.engine.setParameter(kParamAmpCalibrate, calibrate ? 1.0 : 0.0);
+    rig.engine.setParameter(kParamInterfaceDbu, interfaceDbu);
+    rig.engine.setParameter(kParamAmpInputGain, ampInputDb);
+    rig.engine.prepare({48000.0, 64, 1, 1}); // start from the settled values
+    rig.engine.loadCapture(modelPath("lstm.nam"));
+    rig.activate();
+    rig.finishCrossfade();
+    for (int b = 0; b < 60; ++b) // let the 30 ms gain / calibration ramps settle
+      rig.silence();
+    std::vector<double> out;
+    for (int b = 0; b < 40; ++b)
+    {
+      rig.sine(0.1, 330.0);
+      out.insert(out.end(), rig.out.begin(), rig.out.end());
+    }
+    return out;
+  };
+  const auto calibrated = render(true, 24.3, 0.0);
+  const auto manual = render(false, 12.0, 6.0);
+  const auto neutral = render(true, 18.3, 0.0);
+  const auto off = render(false, 24.3, 0.0);
+  double maxDiff = 0.0, maxNeutral = 0.0, maxOff = 0.0;
+  for (std::size_t i = 0; i < calibrated.size(); ++i)
+  {
+    maxDiff = std::max(maxDiff, std::abs(calibrated[i] - manual[i]));
+    maxNeutral = std::max(maxNeutral, std::abs(neutral[i] - off[i]));
+  }
+  for (double v : off) maxOff = std::max(maxOff, std::abs(v));
+  REQUIRE(maxOff > 1e-3);
+  // NAM Core hands the stored level over in single precision (18.3 -> 18.2999992), a
+  // 1e-6 dB offset; the tolerance allows for that and nothing more.
+  CHECK(maxDiff < 1e-5 * maxOff);
+  CHECK(maxNeutral < 1e-5 * maxOff);
+  CHECK(rms(calibrated) > 1.2 * rms(off)); // and it really is louder into the model
+}

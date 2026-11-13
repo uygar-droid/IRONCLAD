@@ -27,7 +27,7 @@ void AmpStage::prepare(double sampleRate, int maxBlockSize, std::uint64_t genera
 {
   mGeneration = generation;
   const auto n = static_cast<std::size_t>(std::max(1, maxBlockSize));
-  for (auto* v : {&mDry, &mDriven, &mScratch, &mOutA, &mOutB, &mIn, &mOut, &mMixBuf, &mNorm})
+  for (auto* v : {&mDry, &mDriven, &mScratch, &mOutA, &mOutB, &mIn, &mOut, &mMixBuf, &mNorm, &mCal, &mIfDbu})
     v->assign(n, 0.0);
 
   mFadeLen = std::max(1, static_cast<int>(std::lround(sampleRate * kCrossfadeMs * 0.001)));
@@ -67,6 +67,8 @@ void AmpStage::prepare(double sampleRate, int maxBlockSize, std::uint64_t genera
   mOutputGain.reset(sr, 30.0, mPrepared ? mOutputGain.target() : 1.0);
   mMix.reset(sr, 20.0, mPrepared ? mMix.target() : 1.0);
   mNormAmount.reset(sr, 30.0, mPrepared ? mNormAmount.target() : 1.0);
+  mCalAmount.reset(sr, 30.0, mPrepared ? mCalAmount.target() : 0.0);
+  mInterfaceDbu.reset(sr, 30.0, mPrepared ? mInterfaceDbu.target() : 12.0);
   mLatency.store(mLive && mLive->model ? mLive->model->latencySamples() : 0, std::memory_order_relaxed);
   mPrepared = true;
 }
@@ -77,6 +79,12 @@ void AmpStage::setTargets(double inputDb, double outputDb, bool enabled, bool no
   mOutputGain.setTarget(dbToLin(outputDb));
   mMix.setTarget(enabled ? 1.0 : 0.0);
   mNormAmount.setTarget(normalize ? 1.0 : 0.0);
+}
+
+void AmpStage::setCalibration(bool enabled, double interfaceDbu) noexcept
+{
+  mCalAmount.setTarget(enabled ? 1.0 : 0.0);
+  mInterfaceDbu.setTarget(interfaceDbu);
 }
 
 void AmpStage::retire(PreparedAmp* amp) noexcept
@@ -96,6 +104,16 @@ void AmpStage::renderSlot(PreparedAmp* slot, const double* dry, const double* dr
     return;
   }
   std::copy(driven, driven + n, scratchIn); // the model gets its own copy of its input
+  if (const auto& level = slot->model->info().inputLevelDbu)
+  {
+    // Input calibration (smoothed amount and interface level; exp only while it is active).
+    const double* amount = mCal.data();
+    const double* ifDbu = mIfDbu.data();
+    constexpr double kDbToLn = 0.11512925464970229; // ln(10) / 20
+    for (int i = 0; i < n; ++i)
+      if (amount[i] > 0.0)
+        scratchIn[i] *= std::exp(kDbToLn * amount[i] * (ifDbu[i] - *level));
+  }
   slot->model->process(scratchIn, out, n);
   const double norm = dbToLin(slot->model->normalizationDb());
   const double* amount = mNorm.data();
@@ -147,6 +165,8 @@ void AmpStage::process(double* io, int n) noexcept
     mOut[static_cast<std::size_t>(i)] = mOutputGain.next();
     mNorm[static_cast<std::size_t>(i)] = mNormAmount.next();
     mMixBuf[static_cast<std::size_t>(i)] = mMix.next();
+    mCal[static_cast<std::size_t>(i)] = mCalAmount.next();
+    mIfDbu[static_cast<std::size_t>(i)] = mInterfaceDbu.next();
   }
 
   // 3. Render live (and outgoing) capture.

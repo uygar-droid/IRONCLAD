@@ -99,7 +99,15 @@ public:
   };
   bool effectFullyOff(int slot) const noexcept { return mBypass[slot].fullyOff(); }
 
+  /// Preset switch: the output fades out (kTransitionMs), parameter changes made meanwhile
+  /// are applied while silent, then it fades back in. Call it BEFORE setting the new values.
+  /// Any thread; lock-free.
+  void beginTransition() noexcept { mTransitionRequested.store(true, std::memory_order_release); }
+  bool inTransition() const noexcept { return mTransition != Transition::None; }
+  static constexpr double kTransitionMs = 5.0;
+
 private:
+  void applyTransition(double* left, double* right, int numFrames) noexcept;
   void processChunk(const double* const* inputs, int numInputs, double* const* outputs, int numOutputs,
                     int offset, int numFrames) noexcept;
   void pullParameterTargets() noexcept;
@@ -113,6 +121,13 @@ private:
   std::array<std::atomic<double>, kNumParams> mParamValues;
   SmoothedValue mInputGain;  // linear
   SmoothedValue mOutputGain; // linear
+  SmoothedValue mVolume;     // volume pedal, linear gain
+
+  enum class Transition : std::uint8_t { None, Out, In };
+  std::atomic<bool> mTransitionRequested{false};
+  Transition mTransition = Transition::None;
+  double mTransitionGain = 1.0;
+  double mTransitionStep = 1.0;
 
   std::vector<double> mMono; // maxBlockSize, allocated in prepare()
   std::vector<double> mLeft, mRight;
@@ -139,5 +154,7 @@ private:
 };
 
 double dbToGain(double db) noexcept;
+/// Volume pedal position (0..100 %) to linear gain.
+double volumePedalGain(double percent) noexcept;
 
 } // namespace ironclad

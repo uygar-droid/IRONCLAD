@@ -10,6 +10,7 @@
 //     fails on any other change.
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <string_view>
 
@@ -26,7 +27,8 @@ enum class ParamUnit : std::uint8_t
   Boolean,
   Choice,  // integer index into `choices` ("A|B|C")
   Seconds,
-  Ratio
+  Ratio,
+  Dbu // absolute level, dBu
 };
 
 enum ParamFlags : std::uint32_t
@@ -126,6 +128,10 @@ enum ParamIndex : int
   kParamReverbPreDelay = 69,
   kParamReverbDamping = 70,
   kParamReverbMix = 71,
+  // ---- Milestone 5 ----
+  kParamVolume = 72,
+  kParamAmpCalibrate = 73,
+  kParamInterfaceDbu = 74,
   kNumParams
 };
 
@@ -207,6 +213,14 @@ inline constexpr std::array<ParamSpec, kNumParams> kParamSpecs{{
   {kParamReverbPreDelay, "reverb.predelay_ms", "Reverb Pre-Delay", 0.0, 200.0, 20.0, 0.1, ParamUnit::Milliseconds, 0.0, kParamNoFlags},
   {kParamReverbDamping, "reverb.damping", "Reverb Damping", 0.0, 100.0, 50.0, 0.1, ParamUnit::Percent, 30.0, kParamNoFlags},
   {kParamReverbMix, "reverb.mix", "Reverb Mix", 0.0, 100.0, 25.0, 1.0, ParamUnit::Percent, 30.0, kParamNoFlags},
+  // ---- Milestone 5 ----
+  // Volume pedal, after the cabinet and before the time effects so delay/reverb tails ring out.
+  {kParamVolume, "volume.position", "Volume Pedal", 0.0, 100.0, 100.0, 0.1, ParamUnit::Percent, 15.0, kParamNoFlags},
+  // Input calibration: when on, the capture's input is scaled by (interface level - capture's
+  // recorded input level) dB, so a capture hears the same guitar level as during its
+  // recording. Only applies to captures that store an input level.
+  {kParamAmpCalibrate, "amp.calibrate", "Input Calibration", 0.0, 1.0, 0.0, 1.0, ParamUnit::Boolean, 30.0, kParamNoFlags},
+  {kParamInterfaceDbu, "amp.interface_dbu", "Interface Level", -20.0, 30.0, 12.0, 0.1, ParamUnit::Dbu, 30.0, kParamNoFlags},
 }};
 
 constexpr const ParamSpec& paramSpec(int index) noexcept { return kParamSpecs[static_cast<std::size_t>(index)]; }
@@ -223,6 +237,18 @@ constexpr int findParamIndex(std::string_view id) noexcept
 constexpr double clampToRange(const ParamSpec& spec, double v) noexcept
 {
   return v < spec.minValue ? spec.minValue : (v > spec.maxValue ? spec.maxValue : v);
+}
+
+/// Host-normalised value (0..1) to plain value; matches the plugin's iPlug2 shapes
+/// (linear, or exponential for logScale parameters). Choice/boolean values are rounded.
+inline double plainFromNormalized(const ParamSpec& spec, double norm) noexcept
+{
+  norm = norm < 0.0 ? 0.0 : (norm > 1.0 ? 1.0 : norm);
+  double v = spec.logScale ? spec.minValue * std::pow(spec.maxValue / spec.minValue, norm)
+                           : spec.minValue + norm * (spec.maxValue - spec.minValue);
+  if (spec.unit == ParamUnit::Boolean || spec.unit == ParamUnit::Choice)
+    v = std::round(v);
+  return clampToRange(spec, v);
 }
 
 // Compile-time integrity checks.

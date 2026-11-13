@@ -47,6 +47,8 @@ public:
   void process(double* io, int numFrames) noexcept;
 
   void setTargets(double inputDb, double outputDb, bool enabled, bool normalize) noexcept;
+  /// Input calibration: scale the capture input by (interfaceDbu - capture input level) dB.
+  void setCalibration(bool enabled, double interfaceDbu) noexcept;
 
   AmpQueue& readyQueue() noexcept { return mReady; }
   AmpQueue& retireQueue() noexcept { return mRetire; }
@@ -75,8 +77,8 @@ private:
   std::uint64_t mGeneration = 0;
   bool mPrepared = false;
 
-  SmoothedValue mInputGain, mOutputGain, mMix, mNormAmount;
-  std::vector<double> mDry, mDriven, mScratch, mOutA, mOutB, mIn, mOut, mMixBuf, mNorm;
+  SmoothedValue mInputGain, mOutputGain, mMix, mNormAmount, mCalAmount, mInterfaceDbu;
+  std::vector<double> mDry, mDriven, mScratch, mOutA, mOutB, mIn, mOut, mMixBuf, mNorm, mCal, mIfDbu;
 
   std::atomic<int> mLatency{0};
   std::atomic<std::uint64_t> mActivations{0};

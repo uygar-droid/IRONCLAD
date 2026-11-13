@@ -42,7 +42,22 @@ add_library(ironclad_engine STATIC
   Effects/Reverb.h
   Effects/TapTempo.h
   Effects/Wah.h
+  Midi/MidiMap.cpp
+  Midi/MidiMap.h
   Parameters/Parameters.h
+  Presets/FactoryPresets.cpp
+  Presets/FactoryPresets.h
+  Presets/FileResolver.cpp
+  Presets/FileResolver.h
+  Presets/PresetData.cpp
+  Presets/PresetData.h
+  Presets/PresetLibrary.cpp
+  Presets/PresetLibrary.h
+  Presets/Sha256.cpp
+  Presets/Sha256.h
+  Presets/StateCodec.cpp
+  Presets/StateCodec.h
+  Presets/UndoStack.h
   Utilities/Denormals.h
   Utilities/Paths.h
   Utilities/SpscQueue.h)

@@ -253,3 +253,112 @@ TEST_CASE("Allocation tracker itself detects allocations")
   CHECK(counts.allocations == 1);
   CHECK(counts.deallocations == 1);
 }
+
+TEST_CASE("Volume pedal: audio taper, smoothed, before the time effects")
+{
+  CHECK(volumePedalGain(100.0) == 1.0);
+  CHECK(volumePedalGain(50.0) == 0.25); // -12 dB
+  CHECK(volumePedalGain(0.0) == 0.0);
+  CHECK(volumePedalGain(150.0) == 1.0);
+
+  Engine e;
+  e.setParameter(kParamCabEnabled, 0.0);
+  e.prepare({48000.0, 64, 1, 1});
+  std::vector<double> in(64, 0.5), out(64, 0.0);
+  const double* i[1] = {in.data()};
+  double* o[1] = {out.data()};
+  for (int k = 0; k < 10; ++k)
+    e.process(i, 1, o, 1, 64);
+  CHECK(out.back() == doctest::Approx(0.5).scale(0.0));
+  e.setParameter(kParamVolume, 50.0);
+  double maxStep = 0.0, prev = out.back();
+  for (int k = 0; k < 40; ++k)
+  {
+    e.process(i, 1, o, 1, 64);
+    for (double v : out)
+    {
+      maxStep = std::max(maxStep, std::abs(v - prev));
+      prev = v;
+    }
+  }
+  CHECK(out.back() == doctest::Approx(0.125).scale(0.0));
+  CHECK(maxStep < 0.01); // ramped over 15 ms, no jump
+
+  // With the delay on, tails continue after the pedal closes.
+  Engine d;
+  d.setParameter(kParamCabEnabled, 0.0);
+  d.setParameter(kParamDelayEnabled, 1.0);
+  d.setParameter(kParamDelayTime, 100.0);
+  d.setParameter(kParamDelayMix, 50.0);
+  d.prepare({48000.0, 64, 1, 1});
+  for (int k = 0; k < 30; ++k)
+    d.process(i, 1, o, 1, 64);
+  d.setParameter(kParamVolume, 0.0);
+  std::vector<double> zeros(64, 0.0);
+  const double* z[1] = {zeros.data()};
+  for (int k = 0; k < 20; ++k) // 26 ms: the pedal is shut
+    d.process(i, 1, o, 1, 64);
+  double tail = 0.0;
+  for (int k = 0; k < 75; ++k) // ~100 ms later the echo of the signal is still audible
+  {
+    d.process(z, 1, o, 1, 64);
+    for (double v : out)
+      tail = std::max(tail, std::abs(v));
+  }
+  CHECK(tail > 0.01);
+}
+
+TEST_CASE("Preset transition: fade out, apply while silent, fade in, without clicks")
+{
+  for (int block : {1, 64, 512})
+  {
+    CAPTURE(block);
+    Engine e;
+    e.setParameter(kParamCabEnabled, 0.0);
+    e.prepare({48000.0, block, 1, 1});
+    std::vector<double> in(static_cast<std::size_t>(block)), out(static_cast<std::size_t>(block));
+    const double* i[1] = {in.data()};
+    double* o[1] = {out.data()};
+    long n = 0;
+    auto step = [&] {
+      for (auto& v : in)
+        v = 0.5 * std::sin(6.283185307179586 * 200.0 * static_cast<double>(n++) / 48000.0);
+      e.process(i, 1, o, 1, block);
+    };
+    for (int k = 0; k < 4096 / block + 1; ++k)
+      step();
+
+    e.beginTransition();
+    // A drastic change that would click if applied at full level: output +12 dB.
+    e.setParameter(kParamOutputGain, 12.0);
+    double prevOut = out.back(), maxJump = 0.0, minAbsMid = 1.0;
+    bool sawSilence = false;
+    const int total = 48000 / 20; // 50 ms
+    for (int done = 0; done < total; done += block)
+    {
+      step();
+      for (double v : out)
+      {
+        maxJump = std::max(maxJump, std::abs(v - prevOut));
+        prevOut = v;
+        if (v == 0.0)
+          sawSilence = true;
+        minAbsMid = std::min(minAbsMid, std::abs(v));
+      }
+    }
+    CHECK(sawSilence);
+    CHECK_FALSE(e.inTransition());
+    // Largest sample-to-sample change of the 200 Hz sine at the new +12 dB level is about
+    // 2 * 0.5 * 2*pi*200/48000 = 0.05; the transition must stay in that range (no step).
+    CHECK(maxJump < 0.06);
+    // And the new gain is fully applied afterwards.
+    double peak = 0.0;
+    for (int k = 0; k < 2400 / block + 1; ++k)
+    {
+      step();
+      for (double v : out)
+        peak = std::max(peak, std::abs(v));
+    }
+    CHECK(peak == doctest::Approx(0.5 * std::pow(10.0, 12.0 / 20.0)).epsilon(0.01));
+  }
+}

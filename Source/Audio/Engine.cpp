@@ -10,6 +10,13 @@ namespace ironclad
 
 double dbToGain(double db) noexcept { return std::pow(10.0, db / 20.0); }
 
+double volumePedalGain(double percent) noexcept
+{
+  // Audio taper: x^2 (50 % = -12 dB, 25 % = -24 dB), like a log-taper volume pedal.
+  const double x = std::clamp(percent / 100.0, 0.0, 1.0);
+  return x * x;
+}
+
 Engine::Engine()
 {
   for (int i = 0; i < kNumParams; ++i)
@@ -25,11 +32,15 @@ void Engine::prepare(const ProcessSpec& spec)
   mMono.assign(static_cast<std::size_t>(mSpec.maxBlockSize), 0.0);
   mLeft.assign(static_cast<std::size_t>(mSpec.maxBlockSize), 0.0);
   mRight.assign(static_cast<std::size_t>(mSpec.maxBlockSize), 0.0);
+  mTransitionStep = 1.0 / std::max(1.0, mSpec.sampleRate * kTransitionMs * 0.001);
+  mTransition = Transition::None;
+  mTransitionGain = 1.0;
 
   mInputGain.reset(mSpec.sampleRate, paramSpec(kParamInputGain).smoothingMs,
                    dbToGain(getParameter(kParamInputGain)));
   mOutputGain.reset(mSpec.sampleRate, paramSpec(kParamOutputGain).smoothingMs,
                     dbToGain(getParameter(kParamOutputGain)));
+  mVolume.reset(mSpec.sampleRate, paramSpec(kParamVolume).smoothingMs, volumePedalGain(getParameter(kParamVolume)));
   pullAmpTargets();
   pullCabTargets();
   pullEffectTargets();
@@ -79,6 +90,9 @@ void Engine::reset() noexcept
 {
   mInputGain.setImmediate(dbToGain(getParameter(kParamInputGain)));
   mOutputGain.setImmediate(dbToGain(getParameter(kParamOutputGain)));
+  mVolume.setImmediate(volumePedalGain(getParameter(kParamVolume)));
+  mTransition = Transition::None;
+  mTransitionGain = 1.0;
   std::fill(mMono.begin(), mMono.end(), 0.0);
   std::fill(mLeft.begin(), mLeft.end(), 0.0);
   std::fill(mRight.begin(), mRight.end(), 0.0);
@@ -192,6 +206,7 @@ void Engine::pullAmpTargets() noexcept
 {
   mAmp.setTargets(getParameter(kParamAmpInputGain), getParameter(kParamAmpOutputGain),
                   getParameter(kParamAmpEnabled) >= 0.5, getParameter(kParamAmpNormalize) >= 0.5);
+  mAmp.setCalibration(getParameter(kParamAmpCalibrate) >= 0.5, getParameter(kParamInterfaceDbu));
 }
 
 void Engine::pullParameterTargets() noexcept
@@ -202,6 +217,33 @@ void Engine::pullParameterTargets() noexcept
   // dB -> linear conversion happens once per block per parameter, not per sample.
   mInputGain.setTarget(dbToGain(getParameter(kParamInputGain)));
   mOutputGain.setTarget(dbToGain(getParameter(kParamOutputGain)));
+  mVolume.setTarget(volumePedalGain(getParameter(kParamVolume)));
+}
+
+void Engine::applyTransition(double* left, double* right, int numFrames) noexcept
+{
+  for (int i = 0; i < numFrames; ++i)
+  {
+    if (mTransition == Transition::Out)
+      mTransitionGain = std::max(0.0, mTransitionGain - mTransitionStep);
+    else if (mTransition == Transition::In)
+      mTransitionGain = std::min(1.0, mTransitionGain + mTransitionStep);
+    left[i] *= mTransitionGain;
+    right[i] *= mTransitionGain;
+  }
+  if (mTransition == Transition::Out && mTransitionGain <= 0.0)
+  {
+    // Silent: take the new values now, without ramps for the global gains.
+    pullParameterTargets();
+    mInputGain.setImmediate(mInputGain.target());
+    mOutputGain.setImmediate(mOutputGain.target());
+    mVolume.setImmediate(mVolume.target());
+    mTransition = Transition::In;
+  }
+  else if (mTransition == Transition::In && mTransitionGain >= 1.0)
+  {
+    mTransition = Transition::None;
+  }
 }
 
 void Engine::process(const double* const* inputs, int numInputs, double* const* outputs, int numOutputs,
@@ -232,7 +274,12 @@ void Engine::process(const double* const* inputs, int numInputs, double* const* 
 void Engine::processChunk(const double* const* inputs, int numInputs, double* const* outputs, int numOutputs,
                           int offset, int numFrames) noexcept
 {
-  pullParameterTargets();
+  // Preset transition: while fading out, parameter targets are frozen; they are picked up
+  // (and the global gains snapped) once the output is silent.
+  if (mTransitionRequested.exchange(false, std::memory_order_acq_rel))
+    mTransition = Transition::Out;
+  if (mTransition != Transition::Out)
+    pullParameterTargets();
 
   double* mono = mMono.data();
 
@@ -292,6 +339,15 @@ void Engine::processChunk(const double* const* inputs, int numInputs, double* co
   double* right = mRight.data();
   mCab.process(mono, left, right, numFrames);
 
+  // 4b. Volume pedal (before the time effects, so delay and reverb tails ring out).
+  if (mVolume.isSmoothing() || mVolume.target() != 1.0)
+    for (int i = 0; i < numFrames; ++i)
+    {
+      const double g = mVolume.next();
+      left[i] *= g;
+      right[i] *= g;
+    }
+
   // 5. Post effects (stereo): EQ -> chorus -> delay -> reverb.
   mBypass[kSlotEq].run(left, right, n, [&](int k) { mEq.process(left, right, k); }, [&] { mEq.reset(); });
   mBypass[kSlotChorus].run(left, right, n, [&](int k) { mChorus.process(left, right, k); }, [&] { mChorus.reset(); });
@@ -305,6 +361,9 @@ void Engine::processChunk(const double* const* inputs, int numInputs, double* co
     left[i] *= g;
     right[i] *= g;
   }
+
+  if (mTransition != Transition::None)
+    applyTransition(left, right, numFrames);
 
   if (numOutputs == 1)
   {

@@ -10,6 +10,7 @@ add_executable(ironclad_tests
   TestEngine.cpp
   TestNamSmoke.cpp
   TestParameters.cpp
+  TestPresets.cpp
   TestSpscQueue.cpp)
 
 target_include_directories(ironclad_tests PRIVATE
