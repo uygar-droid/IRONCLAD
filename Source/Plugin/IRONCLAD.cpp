@@ -3,6 +3,7 @@
 
 #if IPLUG_EDITOR
   #include "IControls.h"
+  #include "PluginControls.h"
 #endif
 
 #include <algorithm>
@@ -15,6 +16,9 @@
 #include <vector>
 
 #include "Parameters/Parameters.h"
+#include "Presets/PresetLibrary.h"
+#include "Presets/StateCodec.h"
+#include "Utilities/Paths.h"
 
 static_assert(std::is_same_v<iplug::sample, double>, "IRONCLAD engine processes double-precision buffers");
 
@@ -35,8 +39,7 @@ const char* UnitLabel(ironclad::ParamUnit unit)
   }
 }
 
-constexpr int kNumFactoryPresets = 1;
-constexpr char kStateMagic[] = "IRCL";
+constexpr int kNumFactoryPresets = 1; // iPlug2's own preset slot (unused; IRONCLAD has its own library)
 
 const IColor kAmber(255, 255, 176, 64);
 const IColor kTextHi(255, 230, 230, 230);
@@ -150,6 +153,20 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
 
   MakeDefaultPreset("Default", kNumFactoryPresets);
   PushAllParametersToEngine();
+  for (int i = 0; i < ironclad::kNumParams; ++i)
+    mCommitted[static_cast<std::size_t>(i)] = GetParam(i)->Value();
+
+  // A new instance starts with the user's default MIDI map (MIDI > Save as default).
+  try
+  {
+    const std::string dir = ironclad::userDataDir();
+    if (!dir.empty())
+      mMidi.setData(ironclad::midiMapFromJson(
+        ironclad::readTextFile(ironclad::utf8FromPath(ironclad::pathFromUtf8(dir) / "midi-default.json"))));
+  }
+  catch (const std::exception&)
+  {
+  }
 
 #if IPLUG_EDITOR
   mMakeGraphicsFunc = [&]() {
@@ -206,9 +223,43 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
       }
     };
 
-    // ---- Header + page navigation (bottom, as in the final design) ----
-    pGraphics->AttachControl(new ITextControl(bounds.GetFromTop(40.f), "IRONCLAD", IText(32.f, kTextHi)));
-    const IRECT content = IRECT(bounds.L, bounds.T + 46.f, bounds.R, bounds.B - 62.f);
+    // ---- Top bar: presets, undo/redo, MIDI. Page navigation at the bottom. ----
+    {
+      const IRECT bar = bounds.GetFromTop(34.f);
+      float x = bar.L;
+      auto next = [&](float w) {
+        const IRECT r(x, bar.T, x + w, bar.B);
+        x += w + 6.f;
+        return r;
+      };
+      pGraphics->AttachControl(new ITextControl(next(150.f), "IRONCLAD", IText(28.f, kTextHi, nullptr, EAlign::Near)));
+      auto barButton = [&](float w, const char* label, std::function<void(IControl*)> f, int tag = kNoTag) {
+        pGraphics->AttachControl(new IVButtonControl(next(w), [f](IControl* c) {
+          SplashClickActionFunc(c);
+          f(c);
+        }, label, buttonStyle.WithDrawShadows(false), true, false), tag);
+      };
+      barButton(34.f, "<", [this](IControl*) { StepPreset(-1); });
+      pGraphics->AttachControl(new ironclad_ui::ClickTextControl(next(330.f), IText(17.f, kTextHi, nullptr, EAlign::Near),
+                                                                 IColor(255, 40, 40, 44),
+                                                                 [this]() {
+                                                                   if (IGraphics* g = GetUI())
+                                                                     ShowPresetMenu(g->GetControlWithTag(kCtrlTagPresetName));
+                                                                 }),
+                               kCtrlTagPresetName);
+      barButton(34.f, ">", [this](IControl*) { StepPreset(+1); });
+      barButton(48.f, "FAV", [this](IControl*) { ToggleFavorite(); }, kCtrlTagFavorite);
+      barButton(64.f, "SAVE", [this](IControl*) { SavePreset(false); });
+      barButton(40.f, "...", [this](IControl* c) { ShowPresetActionsMenu(c); });
+      x += 14.f;
+      barButton(64.f, "UNDO", [this](IControl*) { Undo(); }, kCtrlTagUndo);
+      barButton(64.f, "REDO", [this](IControl*) { Redo(); }, kCtrlTagRedo);
+      barButton(64.f, "MIDI", [this](IControl* c) { ShowMidiMenu(c); }, kCtrlTagMidi);
+      pGraphics->AttachControl(new ITextControl(IRECT(bounds.L + 156.f, bar.B + 2.f, bounds.R, bar.B + 18.f), "",
+                                                IText(13.f, kAmber, nullptr, EAlign::Near)),
+                               kCtrlTagPresetStatus);
+    }
+    const IRECT content = IRECT(bounds.L, bounds.T + 56.f, bounds.R, bounds.B - 62.f);
     pGraphics->AttachControl(new IVTabSwitchControl(bounds.GetFromBottom(44.f).GetReducedFromBottom(14.f),
                                                     [this](IControl* pCaller) {
                                                       ShowPage(static_cast<int>(std::lround(pCaller->GetValue() * 3.0)));
@@ -252,7 +303,7 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
       }, "LOAD CAPTURE...", buttonStyle, true, false));
       attach(new IVButtonControl(capButtons.GetFromTop(42.f).GetVShifted(50.f), [this](IControl* pCaller) {
         SplashClickActionFunc(pCaller);
-        mEngine.clearCapture();
+        LoadCaptureFile({}, true);
       }, "CLEAR", style, true, false));
       const IRECT capInfo = capInner.GetReducedFromLeft(200.f);
       attach(new ITextControl(capInfo.GetFromTop(36.f), "No capture loaded", IText(26.f, kTextHi, nullptr, EAlign::Near)),
@@ -269,9 +320,14 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
       knob(ampRow.GetGridCell(3, 1, 6).GetPadded(-6.f), ironclad::kParamOutputGain, "Output");
       toggle(ampRow.GetGridCell(4, 1, 6).GetCentredInside(100.f, 80.f), ironclad::kParamAmpEnabled, "Amp");
       toggle(ampRow.GetGridCell(5, 1, 6).GetCentredInside(100.f, 80.f), ironclad::kParamAmpNormalize, "Normalize");
-      attach(new ITextControl(content.GetReducedFromTop(360.f).GetFromTop(40.f),
+      const IRECT calRow = content.GetReducedFromTop(360.f).GetFromTop(150.f);
+      toggle(calRow.GetGridCell(0, 1, 6).GetCentredInside(110.f, 80.f), ironclad::kParamAmpCalibrate, "Input Calibration");
+      knob(calRow.GetGridCell(1, 1, 6).GetPadded(-6.f), ironclad::kParamInterfaceDbu, "Interface Level");
+      knob(calRow.GetGridCell(3, 1, 6).GetPadded(-6.f), ironclad::kParamVolume, "Volume Pedal");
+      attach(new ITextControl(content.GetReducedFromTop(520.f).GetFromTop(60.f),
                               "Amp Input / Amp Output set the level into and out of the capture. A capture records one amp "
-                              "setting; tone shaping is done with the EQ on the POST FX page.",
+                              "setting; tone shaping is done with the EQ on the POST FX page. Input Calibration: set "
+                              "Interface Level to your interface's input level at 0 dBFS (dBu, see its manual).",
                               IText(13.f, kTextLo)));
     }
 
@@ -292,7 +348,7 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
         }, "LOAD IR...", buttonStyle, true, false));
         attach(new IVButtonControl(btnRow.GetGridCell(1, 1, 2).GetPadded(-3.f), [this, slot](IControl* pCaller) {
           SplashClickActionFunc(pCaller);
-          mEngine.clearIr(slot);
+          LoadIrFile(slot, {}, true);
         }, "CLEAR", style, true, false));
         attach(new ITextControl(in.GetReducedFromTop(38.f).GetFromTop(24.f), "No IR loaded", IText(18.f, kTextHi, nullptr, EAlign::Near)),
                slot == 0 ? kCtrlTagIrName0 : kCtrlTagIrName1);
@@ -332,7 +388,8 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
       attach(new IVButtonControl(delayRect.GetPadded(-10.f).GetFromTop(26.f).GetFromRight(160.f).GetHShifted(-84.f),
                                  [this](IControl* pCaller) {
                                    SplashClickActionFunc(pCaller);
-                                   TapDelayTempo();
+                                   TapDelayTempo(std::chrono::duration<double>(
+                                     std::chrono::steady_clock::now().time_since_epoch()).count());
                                  },
                                  "TAP", buttonStyle, true, false));
       pedal(IRECT(r2.L + r2.W() * 0.62f, r2.T, r2.R, r2.B).GetPadded(-4.f), "REVERB", ironclad::kParamReverbEnabled,
@@ -347,6 +404,7 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
     pGraphics->AttachControl(new ITextControl(bounds.GetFromBottom(14.f), buildInfo.Get(),
                                               IText(11.f, IColor(255, 110, 110, 110), nullptr, EAlign::Far)));
     ShowPage(mPage);
+    RefreshPresetBar();
     mShownStatusSerial = UINT64_MAX;
     mShownIrSerial = UINT64_MAX;
     RefreshCaptureDisplay(true);
@@ -373,22 +431,13 @@ void IRONCLAD::ShowPage(int page)
 #endif
 }
 
-void IRONCLAD::TapDelayTempo()
+void IRONCLAD::TapDelayTempo(double timeSeconds)
 {
-  const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-  const auto ms = mTapTempo.tap(now);
+  const auto ms = mTapTempo.tap(timeSeconds);
   if (!ms)
     return;
-  auto setParam = [this](int idx, double plain) {
-    const double norm = GetParam(idx)->ToNormalized(plain);
-    SendParameterValueFromUI(idx, norm);
-#if IPLUG_EDITOR
-    if (IGraphics* g = GetUI())
-      g->ForControlWithParam(idx, [norm](IControl* c) { c->SetValueFromDelegate(norm); });
-#endif
-  };
-  setParam(ironclad::kParamDelaySync, 0.0); // a tapped time replaces tempo sync
-  setParam(ironclad::kParamDelayTime, *ms);
+  SetParamFromPlugin(ironclad::kParamDelaySync, 0.0); // a tapped time replaces tempo sync
+  SetParamFromPlugin(ironclad::kParamDelayTime, *ms);
 }
 
 void IRONCLAD::PushAllParametersToEngine()
@@ -410,8 +459,7 @@ void IRONCLAD::BrowseForCapture()
                                return; // cancelled
                              mLastCaptureFile.Set(fileName.Get());
                              mLastCaptureDir.Set(path.Get());
-                             mEngine.loadCapture(fileName.Get());
-                             RefreshCaptureDisplay(true);
+                             LoadCaptureFile(fileName.Get(), true);
                            });
 #endif
 }
@@ -429,8 +477,7 @@ void IRONCLAD::BrowseForIr(int slot)
                                return;
                              mLastIrFile.Set(fileName.Get());
                              mLastIrDir.Set(path.Get());
-                             mEngine.loadIr(slot, fileName.Get());
-                             RefreshIrDisplay(true);
+                             LoadIrFile(slot, fileName.Get(), true);
                            });
 #endif
 }
@@ -525,6 +572,7 @@ void IRONCLAD::OnUIOpen()
   Plugin::OnUIOpen();
   RefreshCaptureDisplay(true);
   RefreshIrDisplay(true);
+  RefreshPresetBar();
 }
 
 void IRONCLAD::OnIdle()
@@ -535,94 +583,43 @@ void IRONCLAD::OnIdle()
     SetLatency(latency);
   RefreshCaptureDisplay(false);
   RefreshIrDisplay(false);
+  DrainMidiEvents();
+  // Preset messages fade out after a while.
+  const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  if (!mPresetStatus.empty() && now - mPresetStatusTime > (mPresetStatusIsError ? 12.0 : 4.0) &&
+      mMidi.learnTarget() == ironclad::kMidiNoTarget && !mLearnOnTouch)
+    SetPresetStatus({}, false);
 }
 
 bool IRONCLAD::SerializeState(IByteChunk& chunk) const
 {
-  chunk.PutStr(kStateMagic);
-  const int version = kStateVersion;
-  chunk.Put(&version);
-  const int numParams = NParams(); // stored from v2 so later versions can add parameters
-  chunk.Put(&numParams);
-  if (!SerializeParams(chunk))
-    return false;
-  chunk.PutStr(mEngine.captureStatePath().c_str());
-  chunk.PutStr(mEngine.irStatePath(0).c_str());
-  chunk.PutStr(mEngine.irStatePath(1).c_str());
+  // Host thread. Everything read here is either an atomic or only changed on this thread.
+  ironclad::SessionState st;
+  st.preset = CurrentPresetData();
+  st.presetPath = mPresetPath;
+  st.presetModified = mPresetModified;
+  st.midi = mMidi.data();
+  const std::vector<std::uint8_t> bytes = ironclad::encodeState(st);
+  chunk.PutBytes(bytes.data(), static_cast<int>(bytes.size()));
   return true;
-}
-
-int IRONCLAD::UnserializeLegacyParams(const IByteChunk& chunk, int startPos, int count)
-{
-  // Reads `count` parameter values (doubles, index order). count < 0: read until the
-  // chunk ends (Milestone-1 states held nothing else). Parameters the state does not
-  // contain keep their defaults; values for parameters this build lacks are skipped.
-  int pos = startPos;
-  for (int i = 0; count < 0 || i < count; ++i)
-  {
-    double v = 0.0;
-    const int next = chunk.Get(&v, pos);
-    if (next < 0)
-      break;
-    if (i < NParams())
-      GetParam(i)->Set(v);
-    pos = next;
-  }
-  return pos;
 }
 
 int IRONCLAD::UnserializeState(const IByteChunk& chunk, int startPos)
 {
-  WDL_String magic;
-  int pos = chunk.GetStr(magic, startPos);
-  if (pos < 0 || std::strcmp(magic.Get(), kStateMagic) != 0)
-  {
-    pos = UnserializeLegacyParams(chunk, startPos, -1);
-    PushAllParametersToEngine();
-    return pos;
-  }
-
-  int version = 0;
-  pos = chunk.Get(&version, pos);
-  if (pos < 0 || version < 1)
-    return -1;
-
-  // v1 stored exactly 6 parameters (M2); from v2 the count precedes the values.
-  int numParams = 6;
-  if (version >= 2)
-  {
-    pos = chunk.Get(&numParams, pos);
-    if (pos < 0 || numParams < 0 || numParams > 100000)
-      return -1;
-  }
-  pos = UnserializeLegacyParams(chunk, pos, numParams);
+  ironclad::SessionState st;
+  const int pos = ironclad::decodeState(chunk.GetData(), chunk.Size(), startPos, st);
   if (pos < 0)
-    return -1;
+    return -1; // not ours / damaged / from a newer version: the host keeps the defaults
 
-  WDL_String capturePath, irPath[2];
-  int next = chunk.GetStr(capturePath, pos);
-  if (next >= 0)
-    pos = next;
-  if (version >= 2)
-    for (auto& p : irPath)
-    {
-      next = chunk.GetStr(p, pos);
-      if (next >= 0)
-        pos = next;
-    }
-
-  PushAllParametersToEngine();
-  if (capturePath.GetLength() > 0)
-    mEngine.loadCapture(capturePath.Get());
-  else
-    mEngine.clearCapture();
-  for (int slot = 0; slot < 2; ++slot)
-  {
-    if (irPath[slot].GetLength() > 0)
-      mEngine.loadIr(slot, irPath[slot].Get());
-    else
-      mEngine.clearIr(slot);
-  }
+  if (st.sourceVersion >= 3)
+    mMidi.setData(st.midi); // older projects had no MIDI map: keep the default one
+  if (st.preset.name.empty())
+    st.preset.name = "Untitled";
+  ApplyPreset(st.preset, {}, false, false, false);
+  mPresetPath = st.presetPath;
+  mPresetModified = st.presetModified;
+  mUndo.clear();
+  RefreshPresetBar();
   return pos;
 }
 
@@ -644,6 +641,29 @@ void IRONCLAD::OnParamChange(int paramIdx)
 {
   // May be called on the audio thread; Engine::setParameter is a lock-free atomic store.
   mEngine.setParameter(paramIdx, GetParam(paramIdx)->Value());
+}
+
+void IRONCLAD::ProcessMidiMsg(const IMidiMsg& msg)
+{
+  // Audio thread: lock-free, allocation-free. The engine reacts at once; the host, UI and
+  // undo history follow from OnIdle.
+  if (msg.StatusMsg() != IMidiMsg::kControlChange)
+    return;
+  const IMidiMsg::EControlChangeMsg cc = msg.ControlChangeIdx();
+  ironclad::MidiEvent e;
+  if (!mMidi.handleCc(static_cast<int>(cc), msg.ControlChange(cc), e))
+    return;
+  using Kind = ironclad::MidiEvent::Kind;
+  if (e.kind == Kind::ToggleParam)
+  {
+    e.kind = Kind::SetParam;
+    e.value = mEngine.getParameter(e.target) >= 0.5 ? 0.0 : 1.0;
+  }
+  if (e.kind == Kind::SetParam)
+    mEngine.setParameter(e.target, e.value);
+  else if (e.kind == Kind::Action)
+    e.timeSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  mMidiEvents.push(e); // if the queue is ever full the engine already has the value
 }
 
 void IRONCLAD::ProcessBlock(sample** inputs, sample** outputs, int nFrames)

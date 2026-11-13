@@ -4,6 +4,8 @@ iplug_add_plugin(IRONCLAD
   SOURCES
     IRONCLAD.cpp
     IRONCLAD.h
+    IRONCLADPresets.cpp
+    PluginControls.h
     config.h
   RESOURCES
     resources/fonts/Roboto-Regular.ttf

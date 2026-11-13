@@ -8,8 +8,8 @@
 
 #define PLUG_NAME "IRONCLAD"
 #define PLUG_MFR "Ironclad Audio"
-#define PLUG_VERSION_HEX 0x00000401
-#define PLUG_VERSION_STR "0.4.1"
+#define PLUG_VERSION_HEX 0x00000500
+#define PLUG_VERSION_STR "0.5.0"
 #define PLUG_UNIQUE_ID 'Ircl'
 #define PLUG_MFR_ID 'IrnA'
 #define PLUG_URL_STR "https://github.com/uygar-droid/IRONCLAD"
@@ -28,7 +28,7 @@
 
 #define PLUG_LATENCY 0
 #define PLUG_TYPE 0
-#define PLUG_DOES_MIDI_IN 0
+#define PLUG_DOES_MIDI_IN 1 // MIDI learn: expression pedals, footswitches
 #define PLUG_DOES_MIDI_OUT 0
 #define PLUG_DOES_MPE 0
 #define PLUG_DOES_STATE_CHUNKS 1
@@ -40,5 +40,7 @@
 #define PLUG_HOST_RESIZE 0
 
 #define VST3_SUBCATEGORY "Fx|Distortion"
+// Accept CCs on every MIDI channel (omni). iPlug2 maps VST3 CCs through hidden parameters.
+#define VST3_NUM_CC_CHANS 16
 
 #define ROBOTO_FN "Roboto-Regular.ttf"
