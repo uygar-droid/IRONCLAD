@@ -16,7 +16,7 @@ Last updated: 2026-11-13.
 | 2 | NAM integration | ✅ CI + REAPER (macOS) verified; Windows host test pending | VST3 that loads and plays `.nam` captures |
 | 3 | Cabinet engine | ✅ CI + REAPER (macOS) verified; Windows host test pending | + dual-IR zero-latency cabinet |
 | 4 | Core effects | ✅ CI + REAPER (macOS) verified; CPU profiling follow-up | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
-| 5 | Presets, state, automation, MIDI | 🟡 engine unit-tested; CI build + REAPER test pending | Reliable DAW-integrated plugin |
+| 5 | Presets, state, automation, MIDI | 🟡 unit-tested, CI-built + validated (Win + macOS); REAPER test pending | Reliable DAW-integrated plugin |
 | 6 | Graphical interface | ⬜ ⛔ Blender not available in this container | The photorealistic IRONCLAD UI |
 | 7 | Advanced features | ⬜ | Remaining effects, routing, optimisation |
 | 8 | Release | ⬜ | **Release VST3 binaries for Windows and macOS**, installation guide, release notes |
@@ -130,7 +130,7 @@ reorderable routing.
 | MIDI learn: CC → any parameter (host taper), latching or toggling footswitches, Tap Tempo / Next / Previous preset; omni (16 channels); default map for new instances | ✅ unit-tested (incl. 0 allocations on the audio thread) · plugin 🟡 REAPER test pending |
 | Volume pedal parameter (audio taper, before delay / reverb so tails ring out) | ✅ unit-tested |
 | Input calibration (Interface Level dBu vs the capture's recorded input level) | ✅ unit-tested (equals the same gain on Amp Input) |
-| Top preset bar (◀ name ▶, FAV, SAVE, …, UNDO, REDO, MIDI), status line | 🟡 compiles (syntax-checked); CI build + REAPER test pending |
+| Top preset bar (◀ name ▶, FAV, SAVE, …, UNDO, REDO, MIDI), status line | 🟡 CI-built + validated; REAPER test pending |
 | MIDI Program Change → preset | ⛔ not available: VST3 does not pass Program Change to plugins as MIDI (hosts map it to a program-list parameter). Next / Previous preset by CC is provided instead |
 | Real-host gate: automation lanes, MIDI learn with a controller, preset save → close → reopen restores everything, missing-file message | ⬜ user test in REAPER |
 

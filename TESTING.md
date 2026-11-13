@@ -72,6 +72,14 @@ the user (~60 % with 0.4.0) depends on the IR lengths used and on REAPER's buffe
 
 ## 5. Recorded results
 
+### 2026-11-13 — GitHub Actions run 43345267503, commit `830cf01` (M5, 0.5.0)
+
+Windows x64 and macOS universal: plugin built (incl. the new preset / MIDI code), `ironclad_tests`
+**81/81 test cases passed** on both, Steinberg validator **47 passed, 0 failed** on both,
+`lipo` arm64 + x86_64 and ad-hoc signature verified. The previous run (43344309425) failed on
+Windows only in a test that compared a found path with mixed `/` and `\` separators; the test
+now compares the files, the product code was not changed.
+
 ### 2026-11-13 — internal development container (Linux x86-64, GCC 13.3, Release), 0.5.0 engine
 
 `ironclad_tests`: **81 test cases, 498 198 assertions, all passed** (12 new M5 test cases in
