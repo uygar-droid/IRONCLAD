@@ -42,6 +42,7 @@ std::string TargetName(int target)
   return "?";
 }
 
+constexpr int kMenuDefault = -3;
 const IColor kStatusAmber(255, 255, 176, 64);
 const IColor kStatusRed(255, 255, 92, 80);
 } // namespace
@@ -123,13 +124,7 @@ std::vector<std::string> IRONCLAD::FileSearchRoots(const std::string& savedPath)
     if (!p.empty() && std::find(roots.begin(), roots.end(), p) == roots.end())
       roots.push_back(p);
   };
-  const std::string data = ironclad::userDataDir();
-  if (!data.empty())
-  {
-    add(ironclad::utf8FromPath(ironclad::pathFromUtf8(data) / "Captures"));
-    add(ironclad::utf8FromPath(ironclad::pathFromUtf8(data) / "IRs"));
-    add(ironclad::utf8FromPath(ironclad::pathFromUtf8(data) / "Presets"));
-  }
+  add(ironclad::userDataDir()); // the whole IRONCLAD folder (Packs, User, ...)
   add(mLastCaptureDir.Get());
   add(mLastIrDir.Get());
   // The folder the file used to be in, one level up (e.g. a renamed sub-folder).
@@ -143,9 +138,9 @@ ironclad::PresetLibrary& IRONCLAD::Library()
 {
   if (!mLibrary)
   {
-    const std::string data = ironclad::userDataDir();
-    mLibrary = std::make_unique<ironclad::PresetLibrary>(
-      data.empty() ? std::string{} : ironclad::utf8FromPath(ironclad::pathFromUtf8(data) / "Presets"));
+    // Creates IRONCLAD/{IRONCLAD, Packs, User, Default.ironclad} on first use.
+    mLibrary = std::make_unique<ironclad::PresetLibrary>(ironclad::userDataDir());
+    mLibrary->ensureLayout();
   }
   return *mLibrary;
 }
@@ -241,10 +236,16 @@ int IRONCLAD::CurrentPresetIndex()
   for (int i = 0; i < static_cast<int>(lib.entries().size()); ++i)
   {
     const auto& e = lib.entries()[static_cast<std::size_t>(i)];
-    if (e.isFactory() && e.name == mPresetName && e.category == mPresetCategory)
+    if (e.builtinIndex >= 0 && e.name == mPresetName && e.category == mPresetCategory)
       return i;
   }
   return -1;
+}
+
+bool IRONCLAD::CurrentPresetWritable()
+{
+  const int idx = CurrentPresetIndex();
+  return idx >= 0 && !Library().entries()[static_cast<std::size_t>(idx)].readOnly();
 }
 
 void IRONCLAD::LoadPresetIndex(int index)
@@ -266,6 +267,13 @@ void IRONCLAD::LoadPresetIndex(int index)
   mPresetBarDirty = true;
 }
 
+void IRONCLAD::LoadDefaultPreset()
+{
+  ApplyPreset(Library().loadDefault(), Library().rootDir(), true, true, true);
+  mPresetPath.clear();
+  mPresetBarDirty = true;
+}
+
 void IRONCLAD::StepPreset(int delta)
 {
   auto& lib = Library();
@@ -280,8 +288,8 @@ void IRONCLAD::StepPreset(int delta)
 
 void IRONCLAD::SavePreset(bool saveAs)
 {
-  // Factory presets are read-only: saving one asks for a new name.
-  if (saveAs || mPresetPath.empty())
+  // Factory / pack presets and Default are read-only here: saving asks for a new name.
+  if (saveAs || !CurrentPresetWritable())
   {
     PromptForName(mPresetName, [this](const std::string& name) { SavePresetAs(name); });
     return;
@@ -289,11 +297,9 @@ void IRONCLAD::SavePreset(bool saveAs)
   try
   {
     ironclad::PresetData p = CurrentPresetData();
-    p.name = ironclad::utf8FromPath(ironclad::pathFromUtf8(mPresetPath).stem());
-    // Keep the preset where it is, even if its folder is not a category of the library.
-    const std::string category = ironclad::utf8FromPath(ironclad::pathFromUtf8(mPresetPath).parent_path().filename());
-    const bool inRoot = ParentDir(mPresetPath) == Library().rootDir();
-    p.category = inRoot ? std::string{} : category;
+    const auto& e = Library().entries()[static_cast<std::size_t>(CurrentPresetIndex())];
+    p.name = e.name;
+    p.category = e.category;
     mPresetPath = Library().save(p, true);
     mPresetModified = false;
     SetPresetStatus("Saved \"" + p.name + "\".", false);
@@ -308,7 +314,7 @@ void IRONCLAD::SavePreset(bool saveAs)
 void IRONCLAD::SavePresetAs(const std::string& rawName)
 {
   // "Category / Name" puts the preset in a category folder.
-  std::string category = mPresetPath.empty() ? std::string{} : mPresetCategory;
+  std::string category = CurrentPresetWritable() ? mPresetCategory : std::string{};
   std::string name = rawName;
   const auto slash = rawName.find('/');
   if (slash != std::string::npos)
@@ -414,7 +420,7 @@ void IRONCLAD::DeletePreset()
       auto& lib = Library();
       const int idx = lib.indexOfPath(mPresetPath);
       if (idx < 0)
-        throw std::runtime_error("Factory presets cannot be deleted.");
+        throw std::runtime_error("The preset was not found.");
       const std::string name = mPresetName;
       lib.remove(idx);
       mPresetPath.clear();
@@ -427,9 +433,9 @@ void IRONCLAD::DeletePreset()
     }
     mPresetBarDirty = true;
   };
-  if (mPresetPath.empty())
+  if (!CurrentPresetWritable())
   {
-    SetPresetStatus("Factory presets cannot be deleted.", true);
+    SetPresetStatus("Factory and pack presets cannot be deleted.", true);
     return;
   }
 #if IPLUG_EDITOR
@@ -482,8 +488,13 @@ void IRONCLAD::RefreshPresetBar()
     return;
   mPresetBarDirty = false;
   std::string label = mPresetCategory.empty() ? mPresetName : mPresetCategory + " / " + mPresetName;
-  if (mPresetPath.empty() && !label.empty() && CurrentPresetIndex() >= 0)
-    label += "  (factory)";
+  {
+    const int i = CurrentPresetIndex();
+    if (i >= 0 && Library().entries()[static_cast<std::size_t>(i)].isFactory())
+      label += "  (factory)";
+    else if (i >= 0 && Library().entries()[static_cast<std::size_t>(i)].source == ironclad::PresetEntry::Source::Pack)
+      label += "  (pack)";
+  }
   if (mPresetModified)
     label += "  *";
   if (auto* c = dynamic_cast<ironclad_ui::ClickTextControl*>(g->GetControlWithTag(kCtrlTagPresetName)))
@@ -532,8 +543,12 @@ void IRONCLAD::ShowPresetMenu(IControl* pCaller)
   mPresetMenu.Clear();
   mPresetMenu.SetFunction([this](IPopupMenu* pMenu) {
     if (IPopupMenu::Item* item = pMenu ? pMenu->GetChosenItem() : nullptr)
+    {
       if (item->GetTag() >= 0)
         LoadPresetIndex(item->GetTag());
+      else if (item->GetTag() == kMenuDefault)
+        LoadDefaultPreset();
+    }
   });
   const auto& entries = lib.entries();
   auto addItem = [&](IPopupMenu& menu, int i) {
@@ -554,13 +569,13 @@ void IRONCLAD::ShowPresetMenu(IControl* pCaller)
       if (entries[static_cast<std::size_t>(i)].favorite)
         addItem(*fav, i);
   }
-  auto addGroup = [&](bool factory, const char* title) {
+  auto addGroup = [&](ironclad::PresetEntry::Source source, const char* title) {
     IPopupMenu* group = nullptr;
     std::map<std::string, IPopupMenu*> categories;
     for (int i = 0; i < static_cast<int>(entries.size()); ++i)
     {
       const auto& e = entries[static_cast<std::size_t>(i)];
-      if (e.isFactory() != factory)
+      if (e.source != source)
         continue;
       if (!group)
       {
@@ -582,8 +597,11 @@ void IRONCLAD::ShowPresetMenu(IControl* pCaller)
     }
     return group != nullptr;
   };
-  addGroup(true, "Factory templates");
-  if (!addGroup(false, "My presets"))
+  mPresetMenu.AddItem(new IPopupMenu::Item("Default", IPopupMenu::Item::kNoFlags, kMenuDefault));
+  mPresetMenu.AddSeparator();
+  addGroup(ironclad::PresetEntry::Source::Factory, "IRONCLAD");
+  addGroup(ironclad::PresetEntry::Source::Pack, "Packs");
+  if (!addGroup(ironclad::PresetEntry::Source::User, "User"))
     mPresetMenu.AddItem(new IPopupMenu::Item("(no saved presets yet: use SAVE)", IPopupMenu::Item::kDisabled, -1));
   g->CreatePopupMenu(*pCaller, mPresetMenu, pCaller->GetRECT());
 #endif
@@ -595,8 +613,8 @@ void IRONCLAD::ShowPresetActionsMenu(IControl* pCaller)
   IGraphics* g = GetUI();
   if (!g || !pCaller)
     return;
-  enum { kSaveAs = 1, kRename, kDuplicate, kDelete, kRescan, kNewInit };
-  const bool isUser = !mPresetPath.empty();
+  enum { kSaveAs = 1, kRename, kDuplicate, kDelete, kRescan, kNewInit, kSaveDefault, kResetDefault };
+  const bool isUser = CurrentPresetWritable();
   mActionsMenu.Clear();
   mActionsMenu.SetFunction([this](IPopupMenu* pMenu) {
     IPopupMenu::Item* item = pMenu ? pMenu->GetChosenItem() : nullptr;
@@ -613,6 +631,28 @@ void IRONCLAD::ShowPresetActionsMenu(IControl* pCaller)
       SetPresetStatus("Preset folder: " + Library().rootDir(), false);
       break;
     case kNewInit: LoadPresetIndex(Library().indexOfFactory("Init")); break;
+    case kSaveDefault:
+      try
+      {
+        Library().saveDefault(CurrentPresetData());
+        SetPresetStatus("Saved: new IRONCLAD instances start with this sound.", false);
+      }
+      catch (const std::exception& ex)
+      {
+        SetPresetStatus(std::string("Could not save Default: ") + ex.what(), true);
+      }
+      break;
+    case kResetDefault:
+      try
+      {
+        Library().resetDefault();
+        SetPresetStatus("Default reset to Init.", false);
+      }
+      catch (const std::exception& ex)
+      {
+        SetPresetStatus(std::string("Could not reset Default: ") + ex.what(), true);
+      }
+      break;
     default: break;
     }
   });
@@ -622,6 +662,8 @@ void IRONCLAD::ShowPresetActionsMenu(IControl* pCaller)
   mActionsMenu.AddItem(new IPopupMenu::Item("Delete...", isUser ? IPopupMenu::Item::kNoFlags : IPopupMenu::Item::kDisabled, kDelete));
   mActionsMenu.AddSeparator();
   mActionsMenu.AddItem(new IPopupMenu::Item("Init (reset all settings)", IPopupMenu::Item::kNoFlags, kNewInit));
+  mActionsMenu.AddItem(new IPopupMenu::Item("Save current sound as Default (first open)", IPopupMenu::Item::kNoFlags, kSaveDefault));
+  mActionsMenu.AddItem(new IPopupMenu::Item("Reset Default to Init", IPopupMenu::Item::kNoFlags, kResetDefault));
   mActionsMenu.AddItem(new IPopupMenu::Item("Rescan / show preset folder", IPopupMenu::Item::kNoFlags, kRescan));
   g->CreatePopupMenu(*pCaller, mActionsMenu, pCaller->GetRECT());
 #endif
@@ -777,7 +819,7 @@ void IRONCLAD::SaveDefaultMidiMap()
     const std::string dir = ironclad::userDataDir();
     if (dir.empty())
       throw std::runtime_error("no user folder");
-    ironclad::writeTextFileAtomic(ironclad::utf8FromPath(ironclad::pathFromUtf8(dir) / "midi-default.json"),
+    ironclad::writeTextFileAtomic(ironclad::utf8FromPath(ironclad::pathFromUtf8(dir) / ".midi-default.json"),
                                   ironclad::midiMapToJson(mMidi.data()));
     SetPresetStatus("Saved: new IRONCLAD instances start with these MIDI assignments.", false);
   }

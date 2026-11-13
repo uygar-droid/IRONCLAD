@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased] — 0.5.1 (preset folder layout)
+
+### Changed
+- The IRONCLAD folder now holds `Default.ironclad`, `IRONCLAD` (factory presets as files),
+  `Packs` (preset packs, one folder each) and `User` (your presets). It is created on first
+  open; 0.5.0 presets are moved into `User`, favourites included.
+- A newly inserted IRONCLAD starts with `Default.ironclad`. New: *… → Save current sound as
+  Default* and *Reset Default to Init*; *Default* at the top of the preset list.
+- Preset list groups: Default, IRONCLAD, Packs, User. Factory and pack presets are read-only;
+  *Duplicate* copies them into `User`.
+
 ## [Unreleased] — 0.5.0 (Milestone 5: presets, state, undo, MIDI)
 
 ### Added

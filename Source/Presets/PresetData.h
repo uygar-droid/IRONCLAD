@@ -38,7 +38,7 @@ struct PresetData
   std::map<std::string, double> params; // stable id -> plain value
   std::optional<FileRef> capture;
   std::optional<FileRef> ir[2];
-  /// Factory templates: keep whatever capture / IRs are loaded (not stored in files).
+  /// Templates (factory presets): loading keeps whatever capture / IRs are loaded.
   bool templateOnly = false;
 
   /// Value for a parameter index: the stored value, else the default, clamped to range.

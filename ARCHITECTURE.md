@@ -290,9 +290,13 @@ unit-tested on its own; the plugin only forwards host calls and UI events.
   amp/cab page shows "file not found", the previous capture keeps playing and the project keeps
   the reference; the preset bar names the missing files. Never a crash. Hashes are computed once
   per file on the UI thread (`RememberFileRef`); `SerializeState` never hashes.
-- **Library** (`Presets/PresetLibrary`): `<user data>/Presets/<Category>/<Name>.ironclad`,
-  favourites in `favorites.json`; writes are atomic (temp file + rename). File names are
-  sanitised for both Windows and macOS (reserved names, trailing dots, `<>:"/\|?*`).
+- **Library** (`Presets/PresetLibrary`): the IRONCLAD user-data folder holds
+  `Default.ironclad` (first-open sound), `IRONCLAD/<Category>/` (factory presets, written from the
+  built-in set when missing or different, read-only), `Packs/<Pack>/[<Sub>/]` (read-only) and
+  `User/[<Category>/]`; favourites in a hidden `.favorites.json`. `ensureLayout()` creates it and
+  migrates 0.5.0's `Presets/` folder; if the folder is not writable the built-in factory set is
+  used directly. Writes are atomic (temp file + rename). File names are sanitised for both
+  Windows and macOS (reserved names, trailing dots, `<>:"/\|?*`).
 - **Preset switching** (`Engine::beginTransition`): the output fades out over 5 ms with
   parameter targets frozen; when silent, the new targets are taken and the global gains snapped;
   then it fades in over 5 ms. Captures and IRs change with their own 25 ms crossfades.

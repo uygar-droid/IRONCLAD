@@ -123,7 +123,7 @@ reorderable routing.
 | Preset files (`.ironclad`, JSON `schema` 1 + migration hook); unknown ids ignored, missing ids → default, out-of-range clamped | ✅ unit-tested |
 | Capture / IR references: path + path relative to the preset + file name + SHA-256 + size | ✅ unit-tested (SHA-256 against the FIPS 180-4 vectors) |
 | Missing-file resolver: saved path → next to the preset → library search by name (hash-verified) → by content; not found → message, never fatal | ✅ unit-tested |
-| Preset library: user folder, categories (sub-folders), save / save as / overwrite confirm / rename / duplicate / delete, favourites, safe file names (Windows + macOS) | ✅ unit-tested |
+| Preset library: folder layout Default / IRONCLAD (factory) / Packs / User (0.5.1), categories (sub-folders), save / save as / overwrite confirm / rename / duplicate / delete, favourites, first-open Default, migration from 0.5.0, safe file names (Windows + macOS) | ✅ unit-tested |
 | 12 factory templates (effect / gain settings, no captures or IRs — the user's own stay loaded) | ✅ unit-tested (ids and ranges valid) |
 | Click-free preset switching (5 ms fade-out, apply while silent, 5 ms fade-in) | ✅ unit-tested (no step at a +12 dB jump, blocks 1/64/512) |
 | Undo / redo (complete snapshots, knob gestures coalesced, 200 steps; parameters, captures, IRs, preset loads) | ✅ unit-tested (stack) · plugin glue 🟡 REAPER test pending |
@@ -147,12 +147,11 @@ multi-capture research for authentic tone controls.
 ## Milestone 8 — Release
 Full regression; Release VST3 binaries for Windows x64 and macOS universal attached to a
 GitHub Release; Windows installer (Inno Setup) and macOS pkg; installation guide; release notes.
-**Installer must also create the IRONCLAD folders** (requested by the product owner, 2026-11-13):
-per-user `Presets`, `Captures`, `IRs` (macOS `~/Library/Application Support/IRONCLAD/…` for the
-logged-in user via the pkg postinstall script; Windows `%APPDATA%\IRONCLAD\…`), and a shared,
-read-only `Factory Presets` folder (macOS `/Library/Application Support/IRONCLAD/`, Windows
-`%PROGRAMDATA%\IRONCLAD\`) that the plugin reads in addition to its built-in templates, so
-preset packs can be shipped as files. Existing user files are never overwritten; uninstall keeps
-user folders.
+**Installer must also create the IRONCLAD folder** (requested by the product owner, 2026-11-13):
+`IRONCLAD/` with `Default.ironclad`, `IRONCLAD/` (factory presets), `Packs/` and `User/` —
+macOS `~/Library/Application Support/IRONCLAD` for the logged-in user (pkg postinstall script),
+Windows `%APPDATA%\IRONCLAD`. Since 0.5.1 the plugin itself creates the same layout on first
+open, so the installer only pre-creates it and may ship preset packs into `Packs/`. Existing
+user files (User, Default) are never overwritten; uninstall keeps the folder.
 Signing: Windows code-signing certificate (recommended) and Apple Developer ID + notarisation
 (required to avoid Gatekeeper warnings) — both must be provided by the product owner.

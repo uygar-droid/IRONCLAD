@@ -68,6 +68,8 @@ std::string presetToJson(const PresetData& p)
   j["params"] = params;
   j["amp"] = {{"capture", refToJson(p.capture)}};
   j["cab"] = {{"irA", refToJson(p.ir[0])}, {"irB", refToJson(p.ir[1])}};
+  if (p.templateOnly)
+    j["template"] = true; // effect / level template: loading keeps the current capture and IRs
   return j.dump(2);
 }
 
@@ -94,6 +96,7 @@ PresetData presetFromJson(const std::string& text)
   PresetData p;
   p.name = j.value("name", std::string{});
   p.category = j.value("category", std::string{});
+  p.templateOnly = j.value("template", false);
   if (j.contains("params") && j["params"].is_object())
     for (auto it = j["params"].begin(); it != j["params"].end(); ++it)
       if (it.value().is_number())

@@ -347,9 +347,9 @@ TEST_CASE("Preset library: save, rename, duplicate, delete, favourites")
   CHECK(static_cast<int>(reopened.entries().size()) == numFactory + 1);
 
   // A damaged preset file lists fine but reports an error when loaded.
-  writeFile(dir.str("Presets/Broken.ironclad"), "{garbage");
+  writeFile(dir.str("Presets/User/Broken.ironclad"), "{garbage");
   reopened.rescan();
-  const int broken = reopened.indexOfPath(dir.str("Presets/Broken.ironclad"));
+  const int broken = reopened.indexOfPath(dir.str("Presets/User/Broken.ironclad"));
   REQUIRE(broken >= 0);
   CHECK(reopened.entries()[static_cast<std::size_t>(broken)].category.empty());
   CHECK_THROWS_WITH(reopened.load(broken), "The preset file is damaged (invalid JSON).");
@@ -368,8 +368,95 @@ TEST_CASE("Preset library stores files with hash and a path relative to the pres
   const PresetData loaded = PresetLibrary::loadFile(lib.save(p, false));
   REQUIRE(loaded.capture.has_value());
   CHECK(loaded.capture->sha256 == Sha256::ofBytes("capture-bytes", 13));
-  CHECK(loaded.capture->relative == "../Captures/Plexi.nam");
+  CHECK(loaded.capture->relative == "../../Captures/Plexi.nam"); // saved in Presets/User/
   CHECK(loaded.capture->fileName == "Plexi.nam");
+}
+
+TEST_CASE("Library folder layout: IRONCLAD / Packs / User / Default, migration from 0.5.0")
+{
+  TempDir dir("ironclad_layout");
+  const std::string root = dir.str("IRONCLAD");
+  // A 0.5.0 user preset with a favourite, saved in the old place.
+  writeFile(dir.str("IRONCLAD/Presets/Live/Old Song.ironclad"), [] {
+    PresetData p;
+    p.name = "Old Song";
+    p.params["od.drive"] = 44.0;
+    return presetToJson(p);
+  }());
+  writeFile(dir.str("IRONCLAD/Presets/favorites.json"), R"({"favorites":["user:Live/Old Song.ironclad"]})");
+  // A preset pack with a sub-folder.
+  writeFile(dir.str("IRONCLAD/Packs/Studio Pack/Leads/Solo.ironclad"), [] {
+    PresetData p;
+    p.name = "Solo";
+    return presetToJson(p);
+  }());
+
+  PresetLibrary lib(root);
+  REQUIRE(lib.ensureLayout());
+  for (const char* sub : {"IRONCLAD", "Packs", "User"})
+    CHECK(fs::is_directory(dir.path / "IRONCLAD" / sub));
+  CHECK(fs::exists(pathFromUtf8(lib.defaultPresetPath())));
+  CHECK_FALSE(fs::exists(dir.path / "IRONCLAD" / "Presets")); // migrated and removed
+  CHECK(fs::exists(dir.path / "IRONCLAD" / "User" / "Live" / "Old Song.ironclad"));
+
+  // Factory presets are files now, in their designed order, read-only.
+  const auto& factory = factoryPresets();
+  for (std::size_t i = 0; i < factory.size(); ++i)
+  {
+    const auto& e = lib.entries()[i];
+    CAPTURE(e.name);
+    CHECK(e.isFactory());
+    CHECK(e.readOnly());
+    CHECK(e.name == factory[i].name);
+    CHECK(e.category == factory[i].category);
+    CHECK_FALSE(e.path.empty());
+    CHECK(lib.load(static_cast<int>(i)).templateOnly); // the template flag survives the file
+  }
+  CHECK_THROWS_WITH(lib.remove(0), "Factory and pack presets cannot be deleted.");
+
+  // Pack and user presets follow, with categories; the old favourite moved along.
+  const int pack = lib.indexOfPath(dir.str("IRONCLAD/Packs/Studio Pack/Leads/Solo.ironclad"));
+  REQUIRE(pack >= 0);
+  CHECK(lib.entries()[static_cast<std::size_t>(pack)].source == PresetEntry::Source::Pack);
+  CHECK(lib.entries()[static_cast<std::size_t>(pack)].category == "Studio Pack / Leads");
+  CHECK(lib.entries()[static_cast<std::size_t>(pack)].readOnly());
+  const int old = lib.indexOfPath(dir.str("IRONCLAD/User/Live/Old Song.ironclad"));
+  REQUIRE(old > pack);
+  CHECK(lib.entries()[static_cast<std::size_t>(old)].category == "Live");
+  CHECK(lib.entries()[static_cast<std::size_t>(old)].favorite);
+  CHECK(lib.load(old).valueFor(kParamOdDrive) == 44.0);
+
+  // Duplicating a pack preset puts the copy in User/<Pack>.
+  const std::string copy = lib.duplicate(pack);
+  CHECK(fs::equivalent(pathFromUtf8(copy), dir.path / "IRONCLAD" / "User" / "Studio Pack" / "Solo 2.ironclad"));
+
+  // A tampered factory file is restored by the next start.
+  const std::string initPath = lib.entries()[0].path;
+  writeFile(initPath, "{garbage");
+  PresetLibrary again(root);
+  again.ensureLayout();
+  CHECK_NOTHROW(again.load(again.indexOfPath(initPath)));
+
+  // Default: Init until the user saves another one; reset goes back to Init.
+  CHECK(again.loadDefault().name == "Default");
+  CHECK(again.loadDefault().valueFor(kParamOdDrive) == paramSpec(kParamOdDrive).defaultValue);
+  PresetData mine;
+  mine.params["od.drive"] = 12.0;
+  again.saveDefault(mine);
+  CHECK(again.loadDefault().valueFor(kParamOdDrive) == 12.0);
+  CHECK_FALSE(again.loadDefault().templateOnly);
+  PresetLibrary third(root);
+  third.ensureLayout(); // never overwrites an existing Default
+  CHECK(third.loadDefault().valueFor(kParamOdDrive) == 12.0);
+  third.resetDefault();
+  CHECK(third.loadDefault().valueFor(kParamOdDrive) == paramSpec(kParamOdDrive).defaultValue);
+
+  // An unwritable / empty root still offers the built-in factory presets.
+  PresetLibrary none{std::string{}};
+  CHECK_FALSE(none.ensureLayout());
+  CHECK(none.entries().size() == factory.size());
+  CHECK(none.entries()[0].builtinIndex == 0);
+  CHECK(none.loadDefault().name == "Default");
 }
 
 TEST_CASE("File names are made safe on Windows and macOS")

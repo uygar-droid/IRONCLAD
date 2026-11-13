@@ -90,9 +90,13 @@ std::string PresetLibrary::sanitizeName(const std::string& name)
   return out;
 }
 
+std::string PresetLibrary::userDir() const { return utf8FromPath(pathFromUtf8(mRoot) / kUserFolder); }
+
+std::string PresetLibrary::defaultPresetPath() const { return utf8FromPath(pathFromUtf8(mRoot) / kDefaultFile); }
+
 std::string PresetLibrary::pathFor(const std::string& category, const std::string& name) const
 {
-  fs::path p = pathFromUtf8(mRoot);
+  fs::path p = pathFromUtf8(userDir());
   const std::string cat = sanitizeName(category);
   if (!cat.empty())
     p /= pathFromUtf8(cat);
@@ -100,15 +104,32 @@ std::string PresetLibrary::pathFor(const std::string& category, const std::strin
   return utf8FromPath(p);
 }
 
+namespace
+{
+std::string relativeKey(const std::string& path, const std::string& root)
+{
+  std::error_code ec;
+  const fs::path rel = fs::relative(pathFromUtf8(path), pathFromUtf8(root), ec);
+  std::string key = ec || rel.empty() ? path : utf8FromPath(rel);
+  std::replace(key.begin(), key.end(), '\\', '/');
+  return key;
+}
+
+std::string factoryFilePath(const std::string& root, const PresetData& p)
+{
+  fs::path f = pathFromUtf8(root) / PresetLibrary::kFactoryFolder;
+  if (!p.category.empty())
+    f /= pathFromUtf8(PresetLibrary::sanitizeName(p.category));
+  f /= pathFromUtf8(PresetLibrary::sanitizeName(p.name) + PresetLibrary::kExtension);
+  return utf8FromPath(f);
+}
+} // namespace
+
 std::string PresetLibrary::favoriteKey(const PresetEntry& e) const
 {
-  if (e.isFactory())
-    return "factory:" + e.category + "/" + e.name;
-  std::error_code ec;
-  const fs::path rel = fs::relative(pathFromUtf8(e.path), pathFromUtf8(mRoot), ec);
-  std::string key = ec ? e.path : utf8FromPath(rel);
-  std::replace(key.begin(), key.end(), '\\', '/');
-  return "user:" + key;
+  if (e.path.empty())
+    return "builtin:" + e.category + "/" + e.name;
+  return relativeKey(e.path, mRoot);
 }
 
 void PresetLibrary::loadFavorites()
@@ -116,7 +137,7 @@ void PresetLibrary::loadFavorites()
   mFavorites.clear();
   try
   {
-    const auto j = nlohmann::json::parse(readTextFile(utf8FromPath(pathFromUtf8(mRoot) / "favorites.json")));
+    const auto j = nlohmann::json::parse(readTextFile(utf8FromPath(pathFromUtf8(mRoot) / ".favorites.json")));
     if (j.is_object() && j.contains("favorites") && j["favorites"].is_array())
       for (const auto& f : j["favorites"])
         if (f.is_string())
@@ -131,43 +152,180 @@ void PresetLibrary::saveFavorites() const
 {
   nlohmann::json j;
   j["favorites"] = mFavorites;
-  writeTextFileAtomic(utf8FromPath(pathFromUtf8(mRoot) / "favorites.json"), j.dump(2));
+  writeTextFileAtomic(utf8FromPath(pathFromUtf8(mRoot) / ".favorites.json"), j.dump(2));
+}
+
+bool PresetLibrary::ensureLayout()
+{
+  if (mRoot.empty())
+    return false;
+  bool ok = true;
+  std::error_code ec;
+  const fs::path root = pathFromUtf8(mRoot);
+  for (const char* sub : {kFactoryFolder, kPacksFolder, kUserFolder})
+  {
+    fs::create_directories(root / sub, ec);
+    ok = ok && !ec;
+  }
+
+  // Factory presets: (re)written from the built-in set when missing or different, so an
+  // update of IRONCLAD updates them. They are read-only in the browser.
+  for (const auto& p : factoryPresets())
+  {
+    const std::string path = factoryFilePath(mRoot, p);
+    const std::string text = presetToJson(p);
+    try
+    {
+      std::string existing;
+      try
+      {
+        existing = readTextFile(path);
+      }
+      catch (const std::exception&)
+      {
+      }
+      if (existing != text)
+        writeTextFileAtomic(path, text);
+    }
+    catch (const std::exception&)
+    {
+      ok = false;
+    }
+  }
+
+  // Presets saved by 0.5.0 lived in <root>/Presets: move them into User.
+  const fs::path legacy = root / "Presets";
+  if (fs::is_directory(legacy, ec))
+  {
+    std::vector<std::string> oldFavorites;
+    try
+    {
+      const auto j = nlohmann::json::parse(readTextFile(utf8FromPath(legacy / "favorites.json")));
+      for (const auto& f : j.value("favorites", nlohmann::json::array()))
+        if (f.is_string())
+          oldFavorites.push_back(f.get<std::string>());
+    }
+    catch (const std::exception&)
+    {
+    }
+    for (const auto& item : fs::directory_iterator(legacy, ec))
+    {
+      const fs::path target = root / kUserFolder / item.path().filename();
+      std::error_code ec2;
+      if (item.path().filename() == "favorites.json" || fs::exists(target, ec2))
+        continue;
+      fs::rename(item.path(), target, ec2);
+    }
+    fs::remove(legacy / "favorites.json", ec);
+    fs::remove(legacy, ec); // only if empty now
+    if (!oldFavorites.empty())
+    {
+      loadFavorites();
+      for (const auto& key : oldFavorites)
+        if (key.rfind("user:", 0) == 0)
+          mFavorites.push_back(std::string(kUserFolder) + "/" + key.substr(5));
+      try
+      {
+        saveFavorites();
+      }
+      catch (const std::exception&)
+      {
+      }
+    }
+  }
+
+  if (!fs::exists(pathFromUtf8(defaultPresetPath()), ec))
+  {
+    try
+    {
+      resetDefault();
+    }
+    catch (const std::exception&)
+    {
+      ok = false;
+    }
+  }
+  rescan();
+  return ok;
+}
+
+void PresetLibrary::scanFolder(const std::string& dir, PresetEntry::Source source, int maxDepth,
+                               std::vector<PresetEntry>& out) const
+{
+  std::error_code ec;
+  const fs::path base = pathFromUtf8(dir);
+  if (dir.empty() || !fs::is_directory(base, ec))
+    return;
+  fs::recursive_directory_iterator it(base, fs::directory_options::skip_permission_denied, ec), end;
+  int guard = 0;
+  for (; !ec && it != end && guard < 20000; it.increment(ec), ++guard)
+  {
+    if (it.depth() >= maxDepth)
+      it.disable_recursion_pending();
+    std::error_code ec2;
+    if (!it->is_regular_file(ec2) || lower(utf8FromPath(it->path().extension())) != kExtension)
+      continue;
+    PresetEntry e;
+    e.source = source;
+    e.path = utf8FromPath(it->path());
+    e.name = utf8FromPath(it->path().stem());
+    const fs::path rel = it->path().parent_path().lexically_relative(base);
+    for (const auto& part : rel)
+    {
+      const std::string s = utf8FromPath(part);
+      if (s.empty() || s == ".")
+        continue;
+      e.category += (e.category.empty() ? "" : " / ") + s;
+    }
+    out.push_back(std::move(e));
+  }
 }
 
 void PresetLibrary::rescan()
 {
   loadFavorites();
   mEntries.clear();
-  const auto& factory = factoryPresets();
-  for (int i = 0; i < static_cast<int>(factory.size()); ++i)
-    mEntries.push_back({factory[static_cast<std::size_t>(i)].name, factory[static_cast<std::size_t>(i)].category, {}, i});
-
-  std::vector<PresetEntry> user;
-  std::error_code ec;
   const fs::path root = pathFromUtf8(mRoot);
-  if (!mRoot.empty() && fs::is_directory(root, ec))
+  const auto& builtin = factoryPresets();
+
+  std::vector<PresetEntry> factory, packs, user;
+  if (!mRoot.empty())
   {
-    fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, ec), end;
-    for (; !ec && it != end; it.increment(ec))
-    {
-      if (it.depth() >= 1)
-        it.disable_recursion_pending(); // root and one level of category folders
-      std::error_code ec2;
-      if (!it->is_regular_file(ec2) || lower(utf8FromPath(it->path().extension())) != kExtension)
-        continue;
-      PresetEntry e;
-      e.path = utf8FromPath(it->path());
-      e.name = utf8FromPath(it->path().stem());
-      if (it.depth() == 1)
-        e.category = utf8FromPath(it->path().parent_path().filename());
-      user.push_back(std::move(e));
-    }
+    scanFolder(utf8FromPath(root / kFactoryFolder), PresetEntry::Source::Factory, 1, factory);
+    scanFolder(utf8FromPath(root / kPacksFolder), PresetEntry::Source::Pack, 2, packs);
+    scanFolder(userDir(), PresetEntry::Source::User, 1, user);
   }
-  std::sort(user.begin(), user.end(), [](const PresetEntry& a, const PresetEntry& b) {
+  if (factory.empty()) // folder not available: use the built-in set directly
+    for (int i = 0; i < static_cast<int>(builtin.size()); ++i)
+    {
+      PresetEntry e;
+      e.name = builtin[static_cast<std::size_t>(i)].name;
+      e.category = builtin[static_cast<std::size_t>(i)].category;
+      e.source = PresetEntry::Source::Factory;
+      e.builtinIndex = i;
+      factory.push_back(e);
+    }
+
+  // Factory presets in their designed order (categories as listed in FactoryPresets.cpp),
+  // anything else alphabetically by category then name.
+  auto builtinRank = [&builtin](const PresetEntry& e) {
+    for (std::size_t i = 0; i < builtin.size(); ++i)
+      if (builtin[i].name == e.name && builtin[i].category == e.category)
+        return static_cast<int>(i);
+    return static_cast<int>(builtin.size());
+  };
+  auto alpha = [](const PresetEntry& a, const PresetEntry& b) {
     const auto ca = lower(a.category), cb = lower(b.category);
     return ca != cb ? ca < cb : lower(a.name) < lower(b.name);
+  };
+  std::stable_sort(factory.begin(), factory.end(), [&](const PresetEntry& a, const PresetEntry& b) {
+    const int ra = builtinRank(a), rb = builtinRank(b);
+    return ra != rb ? ra < rb : alpha(a, b);
   });
-  mEntries.insert(mEntries.end(), user.begin(), user.end());
+  std::sort(packs.begin(), packs.end(), alpha);
+  std::sort(user.begin(), user.end(), alpha);
+  for (auto* group : {&factory, &packs, &user})
+    mEntries.insert(mEntries.end(), group->begin(), group->end());
   for (auto& e : mEntries)
     e.favorite = std::find(mFavorites.begin(), mFavorites.end(), favoriteKey(e)) != mFavorites.end();
 }
@@ -180,7 +338,7 @@ int PresetLibrary::indexOfPath(const std::string& path) const
   for (int i = 0; i < static_cast<int>(mEntries.size()); ++i)
   {
     const auto& e = mEntries[static_cast<std::size_t>(i)];
-    if (!e.isFactory() && (e.path == path || fs::equivalent(pathFromUtf8(e.path), pathFromUtf8(path), ec)))
+    if (!e.path.empty() && (e.path == path || fs::equivalent(pathFromUtf8(e.path), pathFromUtf8(path), ec)))
       return i;
   }
   return -1;
@@ -216,8 +374,8 @@ PresetData PresetLibrary::load(int index) const
   if (index < 0 || index >= static_cast<int>(mEntries.size()))
     throw std::runtime_error("No such preset.");
   const auto& e = mEntries[static_cast<std::size_t>(index)];
-  if (e.isFactory())
-    return factoryPresets()[static_cast<std::size_t>(e.factoryIndex)];
+  if (e.builtinIndex >= 0)
+    return factoryPresets()[static_cast<std::size_t>(e.builtinIndex)];
   PresetData p = loadFile(e.path);
   p.name = e.name; // the file name is the preset's name in the browser
   p.category = e.category;
@@ -246,7 +404,6 @@ std::string PresetLibrary::save(PresetData p, bool overwrite)
   refresh(p.capture);
   refresh(p.ir[0]);
   refresh(p.ir[1]);
-  p.templateOnly = false;
   writeTextFileAtomic(path, presetToJson(p));
   rescan();
   return path;
@@ -257,12 +414,12 @@ std::string PresetLibrary::rename(int index, const std::string& newName)
   if (index < 0 || index >= static_cast<int>(mEntries.size()))
     throw std::runtime_error("No such preset.");
   const PresetEntry e = mEntries[static_cast<std::size_t>(index)];
-  if (e.isFactory())
-    throw std::runtime_error("Factory presets cannot be renamed.");
+  if (e.readOnly())
+    throw std::runtime_error("Factory and pack presets cannot be renamed.");
   const std::string name = sanitizeName(newName);
   if (name.empty())
     throw std::runtime_error("Please enter a preset name.");
-  const std::string target = pathFor(e.category, name);
+  const std::string target = utf8FromPath(pathFromUtf8(e.path).parent_path() / pathFromUtf8(name + kExtension));
   std::error_code ec;
   if (fs::exists(pathFromUtf8(target), ec) && !fs::equivalent(pathFromUtf8(target), pathFromUtf8(e.path), ec))
     throw std::runtime_error("A preset named \"" + name + "\" already exists.");
@@ -283,6 +440,9 @@ std::string PresetLibrary::rename(int index, const std::string& newName)
 std::string PresetLibrary::duplicate(int index)
 {
   PresetData p = load(index);
+  if (mEntries[static_cast<std::size_t>(index)].source == PresetEntry::Source::Pack)
+    p.category = mEntries[static_cast<std::size_t>(index)].category.substr(
+      0, mEntries[static_cast<std::size_t>(index)].category.find(" / ")); // pack name
   const std::string base = p.name;
   for (int n = 2; n < 1000; ++n)
   {
@@ -299,8 +459,8 @@ void PresetLibrary::remove(int index)
   if (index < 0 || index >= static_cast<int>(mEntries.size()))
     throw std::runtime_error("No such preset.");
   const PresetEntry e = mEntries[static_cast<std::size_t>(index)];
-  if (e.isFactory())
-    throw std::runtime_error("Factory presets cannot be deleted.");
+  if (e.readOnly())
+    throw std::runtime_error("Factory and pack presets cannot be deleted.");
   std::error_code ec;
   if (!fs::remove(pathFromUtf8(e.path), ec) || ec)
     throw std::runtime_error("The preset could not be deleted.");
@@ -326,6 +486,52 @@ void PresetLibrary::setFavorite(int index, bool favorite)
     mFavorites.push_back(key);
   e.favorite = favorite;
   saveFavorites();
+}
+
+PresetData PresetLibrary::loadDefault() const
+{
+  try
+  {
+    PresetData p = loadFile(defaultPresetPath());
+    p.name = "Default";
+    p.category.clear();
+    return p;
+  }
+  catch (const std::exception&)
+  {
+    PresetData p = factoryPresets().front(); // "Init"
+    p.name = "Default";
+    p.category.clear();
+    return p;
+  }
+}
+
+void PresetLibrary::saveDefault(PresetData p)
+{
+  p.name = "Default";
+  p.category.clear();
+  const std::string dir = mRoot;
+  auto refresh = [&](std::optional<FileRef>& r) {
+    if (r && !r->path.empty())
+    {
+      FileRef fresh = makeFileRef(r->path, dir);
+      if (fresh.sha256.empty())
+        fresh = *r;
+      r = fresh;
+    }
+  };
+  refresh(p.capture);
+  refresh(p.ir[0]);
+  refresh(p.ir[1]);
+  writeTextFileAtomic(defaultPresetPath(), presetToJson(p));
+}
+
+void PresetLibrary::resetDefault()
+{
+  PresetData p = factoryPresets().front(); // "Init": all effects off, unity gain
+  p.name = "Default";
+  p.category.clear();
+  writeTextFileAtomic(defaultPresetPath(), presetToJson(p));
 }
 
 } // namespace ironclad

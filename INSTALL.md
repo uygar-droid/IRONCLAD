@@ -44,18 +44,31 @@ IRONCLAD is a VST3 plugin for **Windows 10/11 (64-bit)** and **macOS 13 or newer
 
 ## Presets and your files
 
-IRONCLAD keeps its user data here (created on first use):
+IRONCLAD creates its folder the first time it is opened:
 
 | | macOS | Windows |
 |---|---|---|
-| User folder | `~/Library/Application Support/IRONCLAD` | `%APPDATA%\IRONCLAD` |
-| Presets | `…/IRONCLAD/Presets` (a sub-folder = a category) | `…\IRONCLAD\Presets` |
-| Suggested place for captures / IRs | `…/IRONCLAD/Captures`, `…/IRONCLAD/IRs` | `…\IRONCLAD\Captures`, `…\IRONCLAD\IRs` |
+| IRONCLAD folder | `~/Library/Application Support/IRONCLAD` | `%APPDATA%\IRONCLAD` |
+
+```
+IRONCLAD/
+├── Default.ironclad   the sound a newly inserted IRONCLAD starts with
+├── IRONCLAD/          factory presets (rewritten by each update, read-only in the browser)
+├── Packs/             preset packs: one folder per pack (read-only in the browser)
+└── User/              your presets; a sub-folder is a category
+```
+
+- *…* → *Save current sound as Default* makes the current sound (capture and IRs included) the
+  first-open sound; *Reset Default to Init* goes back to the empty template.
+- To install a preset pack, copy its folder into `Packs`. To edit a factory or pack preset, use
+  *Duplicate* — the copy goes to `User`.
+- Presets saved with 0.5.0 (in the old `Presets` folder) are moved into `User` automatically.
 
 Captures and IRs can live anywhere; a preset remembers each file's location **and** its content.
-If you move or rename a file, IRONCLAD looks for it next to the preset, in the folders above and
-in the folder you last browsed. Keeping your files under the IRONCLAD folder makes presets
-portable between computers: copy the whole `IRONCLAD` folder.
+If you move or rename a file, IRONCLAD looks for it next to the preset, anywhere inside the
+IRONCLAD folder and in the folder you last browsed. Keeping your captures and IRs inside the
+IRONCLAD folder (for example `User/Captures`) makes presets portable between computers: copy
+the whole folder.
 
 ## MIDI (expression pedal, footswitches)
 

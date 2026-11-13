@@ -151,22 +151,38 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
                                        UnitLabel(spec.unit));
   }
 
-  MakeDefaultPreset("Default", kNumFactoryPresets);
   PushAllParametersToEngine();
   for (int i = 0; i < ironclad::kNumParams; ++i)
     mCommitted[static_cast<std::size_t>(i)] = GetParam(i)->Value();
 
-  // A new instance starts with the user's default MIDI map (MIDI > Save as default).
+  // A new instance starts with the user's default MIDI map (MIDI > Save as default) ...
   try
   {
     const std::string dir = ironclad::userDataDir();
     if (!dir.empty())
-      mMidi.setData(ironclad::midiMapFromJson(
-        ironclad::readTextFile(ironclad::utf8FromPath(ironclad::pathFromUtf8(dir) / "midi-default.json"))));
+    {
+      const auto base = ironclad::pathFromUtf8(dir);
+      std::string text;
+      try
+      {
+        text = ironclad::readTextFile(ironclad::utf8FromPath(base / ".midi-default.json"));
+      }
+      catch (const std::exception&)
+      {
+        text = ironclad::readTextFile(ironclad::utf8FromPath(base / "midi-default.json")); // 0.5.0 name
+      }
+      mMidi.setData(ironclad::midiMapFromJson(text));
+    }
   }
   catch (const std::exception&)
   {
   }
+
+  // ... and with Default.ironclad (a project being opened replaces it right after).
+  ApplyPreset(Library().loadDefault(), Library().rootDir(), false, false, false);
+  SetPresetStatus({}, false);
+
+  MakeDefaultPreset("Default", kNumFactoryPresets);
 
 #if IPLUG_EDITOR
   mMakeGraphicsFunc = [&]() {

@@ -100,6 +100,8 @@ private:
   void SetPresetStatus(const std::string& message, bool isError);
   void RefreshPresetBar();
   int CurrentPresetIndex();
+  bool CurrentPresetWritable();
+  void LoadDefaultPreset();
   std::vector<std::string> FileSearchRoots(const std::string& savedPath) const;
 
   // ---- undo ----
@@ -130,8 +132,8 @@ private:
 
   // Presets (UI thread).
   std::unique_ptr<ironclad::PresetLibrary> mLibrary;
-  std::string mPresetName = "Init";
-  std::string mPresetCategory = "Basic";
+  std::string mPresetName = "Default";
+  std::string mPresetCategory;
   std::string mPresetPath; // "" = factory preset or none
   bool mPresetModified = false;
   std::string mPresetStatus;
