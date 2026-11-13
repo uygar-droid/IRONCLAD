@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased] — 0.4.1 (performance)
+
+### Changed
+- Cabinet convolution is now non-uniformly partitioned (64 / 512 / 4096) and still has zero
+  latency. Long IRs are much cheaper: two 1 s stereo IRs went from 57.9 % to 5.5 % of one core
+  (benchmark, 48 kHz / 128). The large partitions' work is spread over time, so the slowest
+  64-sample block with those IRs went from 521 % to 69 % of the block duration (no CPU bursts).
+- Added `ironclad_bench` (stage-by-stage CPU benchmark with worst-block measurement).
+
+### Measured, unchanged
+- A standard WaveNet capture costs ~27 % of one core of the 2.1 GHz Xeon used for the
+  benchmark — the cost of NeuralAmpModelerCore itself, identical to the official NAM plugin
+  (both compute in double at the interface; switching NAM to float made no difference).
+  All 11 effects together cost ~4 %.
+
 ## [Unreleased] — 0.4.0 (Milestone 4: core effects)
 
 ### Added

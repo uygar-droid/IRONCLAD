@@ -22,6 +22,7 @@ machine/runner, date and commit.
 | Effects (M4) | Gate open/closed levels; compressor steady-state gain vs formula; drive harmonics vs drive, bounded output, silence in → silence out; ADAA aliasing vs naive clipper; wah resonance vs pedal; EQ band gains / flatness; chorus transparency at mix 0 and stereo width; delay echo times and feedback, ping-pong alternation, sync divisions, tap tempo; analog delay bounded at 95 % feedback; reverb RT60 within 10 % for 3 types × 2 decays, stable at 10 s for 20 s of noise, click-free type changes | M4 |
 | Effect chain (M4) | All effects off → bit-transparent; each effect switched on/off while playing → no step larger than 0.08 on a 0.3-amplitude sine; all 11 effects on with parameter changes for 2000 blocks → finite, **0 audio-thread allocations**; all effects at 44.1–192 kHz | M4 |
 | Test hygiene (M4) | All `doctest::Approx(...).epsilon(e)` checks now use `.scale(0)` (strictly relative). Doctest's default scale adds an absolute term, which had made some earlier checks looser than intended; re-running with strict tolerances exposed one test comparison bug and one real product deviation (plate RT60), both fixed. | M4 |
+| Convolver (0.4.1) | Equality with direct convolution extended to IR lengths at every stage boundary (511/512/513, 4095/4096/4097) and 20 000 / 48 000 taps, block sizes 1 / 333 / 4096 / random | 0.4.1 |
 | NAM Core | Loads example WaveNet (blocks 64/256/1024) and LSTM captures, output finite and non-silent; missing and malformed files throw (no crash) | M1 |
 
 ## 2. Plugin validation
@@ -42,7 +43,22 @@ machine/runner, date and commit.
 - [ ] Offline render matches realtime playback.
 - [ ] Remove plugin while playing; undo; no crash.
 
-## 4. Recorded results
+## 4. CPU benchmark (`ironclad_bench`, development container, Xeon 2.1 GHz, one core, 48 kHz)
+
+| Configuration | Average, block 128 | Worst block, block 64 |
+|---|---|---|
+| Empty chain | 0.2 % | — |
+| NAM standard WaveNet | 26–27 % | ~113 % (NAM Core internal buffer management; same in the official plugin) |
+| One 2048-tap IR | 0.9 % | 8 % |
+| Two 1 s stereo IRs, 0.4.0 | 57.9 % | 521 % |
+| Two 1 s stereo IRs, 0.4.1 | 5.5 % | 69 % |
+| Each effect | 0.2–1.1 % | — |
+| Capture + 2 IRs + all effects | 33.5 % | — |
+
+Apple Silicon is considerably faster per core than this container; the REAPER figure reported by
+the user (~60 % with 0.4.0) depends on the IR lengths used and on REAPER's buffer size.
+
+## 5. Recorded results
 
 ### 2026-11-12 — internal development container (Linux x86-64, GCC 13.3, Release)
 Not a product target; used only to exercise platform-independent engine code before CI exists.

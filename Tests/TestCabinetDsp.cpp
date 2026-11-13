@@ -67,15 +67,16 @@ TEST_CASE("Convolver equals direct convolution for any IR length and any block s
 {
   std::mt19937 rng(7);
   std::uniform_real_distribution<double> d(-1.0, 1.0);
-  for (std::size_t L : {1u, 2u, 63u, 64u, 65u, 127u, 128u, 129u, 1000u, 4800u})
+  // Lengths cover every stage boundary of the non-uniform partitioning (64 / 512 / 4096).
+  for (std::size_t L : {1u, 2u, 63u, 64u, 65u, 127u, 128u, 129u, 511u, 512u, 513u, 1000u, 4095u, 4096u, 4097u, 4800u, 20000u, 48000u})
   {
     std::vector<double> h(L);
-    for (auto& v : h) v = d(rng) * std::exp(-static_cast<double>(&v - h.data()) / 300.0);
-    std::vector<double> x(6000);
+    for (auto& v : h) v = d(rng) * std::exp(-static_cast<double>(&v - h.data()) / (0.3 * static_cast<double>(L) + 10.0));
+    std::vector<double> x(L > 4800 ? L + 9000 : 6000);
     for (auto& v : x) v = d(rng);
     const auto ref = directConvolution(x, h);
 
-    for (int block : {1, 7, 64, 100, 512, 0 /* random */})
+    for (int block : L > 4800 ? std::vector<int>{1, 333, 4096, 0} : std::vector<int>{1, 7, 64, 100, 512, 0 /* random */})
     {
       CAPTURE(L);
       CAPTURE(block);
