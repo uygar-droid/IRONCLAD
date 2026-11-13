@@ -222,14 +222,19 @@ repository**; the layout notes below are written from them.
   value below), not photorealistic.
 - Footer bar: Tuner · MIDI · Tap + BPM · Settings on the left; version / credit and the window
   resize handle on the right.
-- Reference features IRONCLAD does **not** have (transpose, doubler, mono/stereo input mode,
-  metronome, the reference's cabinet/microphone picker) are not in scope; their space is used for
-  IRONCLAD's own controls or left out. Adding any of them is a separate decision.
+- **Features from the reference layout (decided 2026-11-13):**
+  - **Cabinet / microphone selector: built and functional in phase 6.2** (see the 6.2 row).
+  - **Transpose, Doubler, Input Mode (Mono / Stereo) in the header and Metronome in the footer:
+    placed as dummies** in M6, in the same places as in the reference, so the final layout is
+    solved now. They are made functional later (listed under Milestone 7).
+  - Dummy rules: drawn but visibly inactive (dimmed, no response or a "coming later" tooltip);
+    **not** host parameters yet, so projects and automation never store controls that do
+    nothing. When one is implemented it gets new parameter ids, appended to the table as usual.
 
 | Phase | Page | Reference layout | IRONCLAD controls to place | Open questions |
 |---|---|---|---|---|
 | **6.1** | **Amp** (+ shared frame + prototype knob) | A wide, photorealistic amp head fills the page: textured cabinet with handle, a decorative front grille with glowing tubes behind it, a light control panel along the bottom with a row of chicken-head knobs (numbered 0–10 scales, divider lines between groups), input jack with cable on the left, a red rocker power switch on the right. The top of the cabinet below is visible under the head. | Capture: name, Load / Clear, metadata and status (needs a place on the head, e.g. a display plate on the panel); Amp Input, Amp Output, Normalize, Input Calibration + Interface Level, Volume Pedal; Amp On = the power switch. The layered chicken-head knob (spec above) is built here first. | Where the capture display goes; whether the tubes glow with signal level. |
-| **6.2** | **Cab** | The amp head, smaller, sitting on top of a large cabinet front (grille cloth, speaker outlines, corner protectors); two side columns, one per IR slot: ← → arrows and a name drop-down with a power button on top, then knobs with value + label under each, a phase button at the bottom. | Per slot (A left, B right): IR name / browse / clear, On, Level, Pan, Invert (phase button), waveform; between or below: IR Blend, Cab HPF, Cab LPF. | Whether the waveform thumbnails stay visible; where Blend / HPF / LPF go (the reference has no shared controls). |
+| **6.2** | **Cab** | The amp head, smaller, sitting on top of a large cabinet front (grille cloth, speaker outlines, corner protectors); two side columns, one per IR slot: ← → arrows and a name drop-down with a power button on top, then knobs with value + label under each, a phase button at the bottom. | Per slot (A left, B right): IR name / browse / clear, On, Level, Pan, Invert (phase button), waveform; between or below: IR Blend, Cab HPF, Cab LPF. **Plus the cabinet / microphone selector (functional, decided 2026-11-13):** a row of cabinet icons and per-slot microphone choice, picking IRs from an IR library organised by cabinet and microphone instead of browsing files one by one; the chosen IRs load into slot A / B exactly like a browsed file (crossfade, saved in presets). | Library folder structure and naming (e.g. `Cabs/<Cabinet>/<Mic> <Position>.wav`) and which IRs ship with IRONCLAD (licensing); whether slots A and B can be linked to the same cabinet; whether the waveform thumbnails stay visible; where Blend / HPF / LPF go (the reference has no shared controls). |
 | **6.3** | **Pre-amp pedals** | A row of four photorealistic stomp boxes side by side, each its own colour: knobs with dotted scales, a mini toggle between them, a status LED, the pedal name in large letters, in/out arrows, jack sockets on the sides, a metal footswitch at the bottom. | Seven pre-amp effects: Gate (also in the header), Compressor (threshold, ratio, attack, release, makeup, mix), Boost (gain, bright), Overdrive / Distortion / Fuzz (drive/fuzz, tone, level), Wah (position, resonance, mix — drawn as a wah pedal); each with its footswitch = On. | Seven pedals do not fit in one row of four: two rows, scrolling, or a smaller pedal size. Whether Gate stays only in the header. |
 | **6.4** | **EQ** | A rack-style graphic equaliser unit (dark brushed metal, feet): a big HPF knob on the left with a power toggle, nine vertical sliders with glowing caps (dB value above, frequency below), a big LPF knob on the right with an LED; a two-way switch above the unit. | Current EQ: Bass, Mid, Mid Freq, Treble, Level, On (a parametric 3-band EQ). | **DSP decision needed:** the reference is a 9-band graphic EQ with HPF/LPF. Either keep IRONCLAD's 3-band EQ (draw it as sliders/knobs on a rack unit) or add a graphic EQ in M7 and draw that. |
 | **6.5** | **Post FX** | A large delay pedal (two footswitches: engage and tap tempo, a green LCD showing sync/division, BPM and ping-pong state, two mini toggles for sync and ping-pong, six knobs incl. low/high cut) next to a reverb pedal (four knobs, LED, footswitch). | Chorus (rate, depth, mix); Delay (type digital/analog/ping-pong, time, sync, division, feedback, mix, low cut, high cut; tap tempo footswitch; the LCD shows division/time and BPM); Reverb (type room/hall/plate, decay, pre-delay, damping, mix). | Where Chorus goes (the reference page has two pedals; IRONCLAD has three). |
@@ -243,6 +248,10 @@ repository**; the layout notes below are written from them.
 Octaver, pitch shifter, graphic EQ, phaser, flanger, tremolo, vibrato, rotary, envelope filter,
 tape/ping-pong/stereo delay, spring reverb; reorderable routing; performance optimisation;
 multi-capture research for authentic tone controls.
+
+**Features placed as dummies in M6, to be made functional (decided 2026-11-13):** Transpose
+(pitch shift, semitones), Doubler (stereo double-tracking, time knob), Input Mode Mono / Stereo,
+Metronome (footer, tempo from the host / TAP BPM). Each needs DSP work, tests and new parameter ids.
 
 ## Milestone 8 — Release
 Full regression; Release VST3 binaries for Windows x64 and macOS universal attached to a
