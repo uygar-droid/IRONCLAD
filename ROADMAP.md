@@ -17,7 +17,7 @@ Last updated: 2026-11-13.
 | 3 | Cabinet engine | ✅ CI + REAPER (macOS) verified; Windows host test pending | + dual-IR zero-latency cabinet |
 | 4 | Core effects | ✅ CI + REAPER (macOS) verified; CPU profiling follow-up | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
 | 5 | Presets, state, automation, MIDI | 🟡 unit-tested, CI-built + validated (Win + macOS); REAPER test pending | Reliable DAW-integrated plugin |
-| 6 | Graphical interface | ⬜ ⛔ Blender not available in this container | The photorealistic IRONCLAD UI |
+| 6 | Graphical interface | ⬜ (Blender not required: art from Photoshop, layered-knob spec agreed — see M6) | The photorealistic IRONCLAD UI |
 | 7 | Advanced features | ⬜ | Remaining effects, routing, optimisation |
 | 8 | Release | ⬜ | **Release VST3 binaries for Windows and macOS**, installation guide, release notes |
 
