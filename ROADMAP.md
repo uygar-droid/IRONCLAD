@@ -135,9 +135,51 @@ reorderable routing.
 | Real-host gate: automation lanes, MIDI learn with a controller, preset save → close → reopen restores everything, missing-file message | ⬜ user test in REAPER |
 
 ## Milestone 6 — Graphical interface
-Blender pipeline (render scripts, filmstrip packer), photorealistic amp head, STOMP / AMP / CAB /
-POST FX pages, preset browser, meters, tuner, 100–200 % scaling. Every control functional and
-host-synchronised. Requires Blender on a workstation.
+
+Goal: a photorealistic interface in the class of current commercial amp plugins: STOMP / AMP /
+CAB / POST FX pages, preset bar, meters, tuner, 100–200 % scaling. Every control functional and
+host-synchronised. The look must be **original**: modern commercial amp plugins are inspiration
+only; never copy their amp, pedal or logo designs.
+
+### Decisions agreed with the product owner (2026-11-13) — do not lose these at build time
+
+**Art tools.** Blender is **not required**. The owner may draw in **Photoshop**; Blender or
+KnobMan are optional (e.g. for knob filmstrips). The plugin must support both kinds of art:
+layered 2D knobs (below) and rendered filmstrips.
+
+**Asset rules (to be given to the artist before drawing):**
+- PNG, transparent background; every control a separate file (knob, pedal, panel, LED, switch).
+- Two sizes: 1× and 2× (Retina), e.g. editor 1100×820 and 2200×1640.
+- All layers of one knob share the same canvas size; the rotation centre is the exact canvas centre.
+- A layout sheet (which page, which control, position and size in pixels) is produced by the
+  developer **before** the artist starts, so art is drawn to the final measurements.
+
+**Layered knob ("fake lighting"), as observed in commercial plugins.** The light comes from a
+fixed direction (upper left); the knob rotates under it. Layers, bottom to top:
+
+| # | Layer | Behaviour |
+|---|---|---|
+| 1 | Base + drop shadow | static |
+| 2 | Knob body / pointer (chicken-head), no highlights | rotates with the value |
+| 3 | Pointer-edge highlight (thin white line on the pointer) | rotates with the value; **opacity follows a curve of the angle** (observed: strongest around values 2–5, and a second rise around 8–10) |
+| 4 | Light spot(s), screen-fixed: soft white blob where the light hits (strong main light upper left, optional weak side light right) | does **not** rotate and does not change opacity; drawn **only over the knob's own pixels** (draw layer 2 into an offscreen layer, then layer 4 with source-atop compositing). As the thick end of the pointer passes under it, the highlight appears to slide across it. |
+| 5 | Cap highlight (reflection on the round centre cap) | static |
+
+- Implementation: IGraphics layer (StartLayer / EndLayer) per knob, rotated bitmap draw, `IBlend`
+  with opacity for layer 3, source-atop (`EBlend::SrcAtop`) for layer 4. Redraw only when the
+  value changes (cached layer), so CPU cost stays negligible.
+- **The lighting curves are data, not code:** a small JSON per knob style (peak angle(s), width,
+  min/max opacity of layer 3; which light-spot images; optional offsets), so the owner can tune
+  the look without a rebuild of the code (reload on editor open).
+- **Filmstrips** (64–128 frames, from Blender / KnobMan) are supported as an alternative knob
+  type for art made that way.
+- First step of M6: **one prototype knob** with placeholder art showing all five layers and the
+  tunable curves, tested by the owner in REAPER, before the full interface is drawn.
+
+### Other M6 work
+- Pages STOMP / AMP / CAB / POST FX with the final art; preset bar restyled (functions from M5
+  stay as they are); input / output meters; tuner; 100–200 % scaling with the 2× assets.
+- Every control keeps its parameter binding, automation and MIDI learn.
 
 ## Milestone 7 — Advanced
 Octaver, pitch shifter, graphic EQ, phaser, flanger, tremolo, vibrato, rotary, envelope filter,
