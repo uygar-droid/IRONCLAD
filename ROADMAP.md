@@ -150,6 +150,12 @@ layered 2D knobs (below) and rendered filmstrips.
 **Asset rules (to be given to the artist before drawing):**
 - PNG, transparent background; every control a separate file (knob, pedal, panel, LED, switch).
 - Two sizes: 1× and 2× (Retina), e.g. editor 1100×820 and 2200×1640.
+- **Format by kind (agreed 2026-11-13):** photorealistic art — knob layers, highlights, light
+  spots, shadows, pedals, panels, backgrounds — is **PNG** (raster; soft brushes, blur and
+  textures cannot be expressed in the SVG subset IGraphics draws). **SVG** only for flat line
+  art: page icons, possibly logos and simple markings.
+- Photoshop export: one PNG per layer **with the full canvas kept** (no trimming), so every
+  layer of a knob stays aligned on the same centre.
 - All layers of one knob share the same canvas size; the rotation centre is the exact canvas centre.
 - A layout sheet (which page, which control, position and size in pixels) is produced by the
   developer **before** the artist starts, so art is drawn to the final measurements.
