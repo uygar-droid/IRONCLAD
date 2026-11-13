@@ -8,6 +8,7 @@
 //   <root>/Packs/<Pack>/[<Sub>/]...  preset packs (read-only)
 //   <root>/User/[<Category>/]...     the user's presets
 //   <root>/.favorites.json           favourites (hidden)
+//   <root>/.midi-default.json        MIDI map for new instances (hidden)
 // Every operation reports failures with a std::runtime_error carrying a user-facing message;
 // nothing here may crash the host.
 
@@ -53,6 +54,11 @@ public:
   /// User. Returns false if the folder is not writable; the library then still works with the
   /// built-in factory presets.
   bool ensureLayout();
+
+  /// Moves the user's presets, packs, Default, favourites and default MIDI map from another
+  /// IRONCLAD folder (or from 0.5.0's <root>/Presets) into this one. Never overwrites a file
+  /// that already exists here. Call before ensureLayout().
+  void importFrom(const std::string& oldRoot);
 
   const std::string& rootDir() const noexcept { return mRoot; }
   std::string userDir() const;

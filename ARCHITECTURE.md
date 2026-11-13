@@ -290,6 +290,11 @@ unit-tested on its own; the plugin only forwards host calls and UI events.
   amp/cab page shows "file not found", the previous capture keeps playing and the project keeps
   the reference; the preset bar names the missing files. Never a crash. Hashes are computed once
   per file on the UI thread (`RememberFileRef`); `SerializeState` never hashes.
+- **Folder choice** (`Utilities/Paths.h`, decided once per process): macOS uses
+  `/Library/Audio/Presets/IRONCLAD` if it exists or can be created and a file can be written there
+  (a probe file); otherwise the per-user `~/Library/Application Support/IRONCLAD`. Windows uses
+  `%APPDATA%\IRONCLAD`. `PresetLibrary::importFrom` moves the per-user folder's User, Packs,
+  Default, favourites and MIDI defaults into the shared one without overwriting anything.
 - **Library** (`Presets/PresetLibrary`): the IRONCLAD user-data folder holds
   `Default.ironclad` (first-open sound), `IRONCLAD/<Category>/` (factory presets, written from the
   built-in set when missing or different, read-only), `Packs/<Pack>/[<Sub>/]` (read-only) and

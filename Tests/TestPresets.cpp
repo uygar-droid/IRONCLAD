@@ -459,6 +459,42 @@ TEST_CASE("Library folder layout: IRONCLAD / Packs / User / Default, migration f
   CHECK(none.loadDefault().name == "Default");
 }
 
+TEST_CASE("Moving to the shared folder takes the user's presets, Default, favourites and MIDI map along")
+{
+  TempDir dir("ironclad_import");
+  const std::string oldRoot = dir.str("Old/IRONCLAD");
+  {
+    PresetLibrary old(oldRoot);
+    REQUIRE(old.ensureLayout());
+    PresetData p;
+    p.name = "Song";
+    p.category = "Live";
+    old.setFavorite(old.indexOfPath(old.save(p, false)), true);
+    PresetData d;
+    d.params["od.drive"] = 33.0;
+    old.saveDefault(d);
+  }
+  writeFile(dir.str("Old/IRONCLAD/.midi-default.json"), "[]");
+  writeFile(dir.str("Old/IRONCLAD/Packs/Pack A/x.ironclad"), presetToJson(PresetData{}));
+  // A file of the same name already in the new place is never replaced.
+  writeFile(dir.str("New/IRONCLAD/User/Keep.ironclad"), "new");
+  writeFile(dir.str("Old/IRONCLAD/User/Keep.ironclad"), "old");
+
+  PresetLibrary lib(dir.str("New/IRONCLAD"));
+  lib.importFrom(oldRoot);
+  REQUIRE(lib.ensureLayout());
+  const int song = lib.indexOfPath(dir.str("New/IRONCLAD/User/Live/Song.ironclad"));
+  REQUIRE(song >= 0);
+  CHECK(lib.entries()[static_cast<std::size_t>(song)].favorite);
+  CHECK(lib.loadDefault().valueFor(kParamOdDrive) == 33.0);
+  CHECK(fs::exists(dir.path / "New" / "IRONCLAD" / ".midi-default.json"));
+  CHECK(lib.indexOfPath(dir.str("New/IRONCLAD/Packs/Pack A/x.ironclad")) >= 0);
+  CHECK(readTextFile(dir.str("New/IRONCLAD/User/Keep.ironclad")) == "new");
+  CHECK(fs::exists(dir.path / "Old" / "IRONCLAD" / "User" / "Keep.ironclad")); // left behind, not lost
+  CHECK_FALSE(fs::exists(dir.path / "Old" / "IRONCLAD" / "IRONCLAD"));        // factory copy removed
+  lib.importFrom(dir.str("does-not-exist")); // harmless
+}
+
 TEST_CASE("File names are made safe on Windows and macOS")
 {
   CHECK(PresetLibrary::sanitizeName("a/b\\c:d*e?f\"g<h>i|j") == "a_b_c_d_e_f_g_h_i_j");

@@ -149,7 +149,7 @@ Full regression; Release VST3 binaries for Windows x64 and macOS universal attac
 GitHub Release; Windows installer (Inno Setup) and macOS pkg; installation guide; release notes.
 **Installer must also create the IRONCLAD folder** (requested by the product owner, 2026-11-13):
 `IRONCLAD/` with `Default.ironclad`, `IRONCLAD/` (factory presets), `Packs/` and `User/` —
-macOS `~/Library/Application Support/IRONCLAD` for the logged-in user (pkg postinstall script),
+macOS `/Library/Audio/Presets/IRONCLAD`, owned by / writable for the installing user (pkg postinstall script; since 0.5.2 the plugin uses it when writable, else `~/Library/Application Support/IRONCLAD`),
 Windows `%APPDATA%\IRONCLAD`. Since 0.5.1 the plugin itself creates the same layout on first
 open, so the installer only pre-creates it and may ship preset packs into `Packs/`. Existing
 user files (User, Default) are never overwritten; uninstall keeps the folder.

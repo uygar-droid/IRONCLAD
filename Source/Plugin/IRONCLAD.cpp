@@ -155,6 +155,8 @@ IRONCLAD::IRONCLAD(const InstanceInfo& info)
   for (int i = 0; i < ironclad::kNumParams; ++i)
     mCommitted[static_cast<std::size_t>(i)] = GetParam(i)->Value();
 
+  Library(); // creates / migrates the IRONCLAD folder before anything is read from it
+
   // A new instance starts with the user's default MIDI map (MIDI > Save as default) ...
   try
   {

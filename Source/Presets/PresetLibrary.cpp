@@ -125,6 +125,126 @@ std::string factoryFilePath(const std::string& root, const PresetData& p)
 }
 } // namespace
 
+namespace
+{
+/// Moves everything in `from` into `to`, merging folders and never replacing existing files.
+void moveChildren(const fs::path& from, const fs::path& to, const fs::path& skipName = {})
+{
+  std::error_code ec;
+  if (!fs::is_directory(from, ec))
+    return;
+  fs::create_directories(to, ec);
+  std::vector<fs::path> items;
+  for (const auto& item : fs::directory_iterator(from, ec))
+    items.push_back(item.path());
+  for (const auto& item : items)
+  {
+    if (!skipName.empty() && item.filename() == skipName)
+      continue;
+    const fs::path target = to / item.filename();
+    std::error_code e2;
+    if (fs::exists(target, e2))
+    {
+      if (fs::is_directory(item, e2) && fs::is_directory(target, e2))
+        moveChildren(item, target);
+      continue; // never overwrite
+    }
+    fs::rename(item, target, e2);
+    if (e2) // another volume: copy, then remove the original
+    {
+      std::error_code e3;
+      fs::copy(item, target, fs::copy_options::recursive, e3);
+      if (!e3)
+        fs::remove_all(item, e3);
+    }
+  }
+  fs::remove(from, ec); // only succeeds if it is empty now
+}
+
+std::vector<std::string> readFavoriteList(const fs::path& file)
+{
+  std::vector<std::string> out;
+  try
+  {
+    const auto j = nlohmann::json::parse(readTextFile(utf8FromPath(file)));
+    if (j.is_object())
+      for (const auto& f : j.value("favorites", nlohmann::json::array()))
+        if (f.is_string())
+          out.push_back(f.get<std::string>());
+  }
+  catch (const std::exception&)
+  {
+  }
+  return out;
+}
+} // namespace
+
+void PresetLibrary::importFrom(const std::string& oldRoot)
+{
+  if (oldRoot.empty() || mRoot.empty())
+    return;
+  std::error_code ec;
+  const fs::path from = pathFromUtf8(oldRoot);
+  const fs::path to = pathFromUtf8(mRoot);
+  if (!fs::is_directory(from, ec))
+    return;
+  const bool sameRoot = fs::equivalent(from, to, ec);
+
+  loadFavorites();
+  auto addFavorite = [this](const std::string& key) {
+    if (std::find(mFavorites.begin(), mFavorites.end(), key) == mFavorites.end())
+      mFavorites.push_back(key);
+  };
+  bool favoritesChanged = false;
+
+  // 0.5.0: <root>/Presets/<Category>/x.ironclad with "user:<rel>" favourites.
+  for (const auto& key : readFavoriteList(from / "Presets" / "favorites.json"))
+    if (key.rfind("user:", 0) == 0)
+    {
+      addFavorite(std::string(kUserFolder) + "/" + key.substr(5));
+      favoritesChanged = true;
+    }
+  fs::remove(from / "Presets" / "favorites.json", ec);
+  moveChildren(from / "Presets", to / kUserFolder);
+
+  if (!sameRoot)
+  {
+    // 0.5.1 layout in another folder (the per-user one): same relative favourite keys.
+    for (const auto& key : readFavoriteList(from / ".favorites.json"))
+    {
+      addFavorite(key);
+      favoritesChanged = true;
+    }
+    fs::remove(from / ".favorites.json", ec);
+    moveChildren(from / kUserFolder, to / kUserFolder);
+    moveChildren(from / kPacksFolder, to / kPacksFolder);
+    const std::pair<const char*, const char*> files[] = {
+      {kDefaultFile, kDefaultFile}, {".midi-default.json", ".midi-default.json"}, {"midi-default.json", ".midi-default.json"}};
+    for (const auto& [src, dst] : files)
+    {
+      std::error_code e2;
+      if (!fs::exists(from / src, e2) || fs::exists(to / dst, e2))
+        continue;
+      fs::rename(from / src, to / dst, e2);
+      if (e2 && fs::copy_file(from / src, to / dst, e2))
+        fs::remove(from / src, e2);
+    }
+    // The factory folder is rewritten from the built-in set; the old copy is not needed.
+    fs::remove_all(from / kFactoryFolder, ec);
+    fs::remove(from, ec); // only if nothing else is left
+  }
+  if (favoritesChanged)
+  {
+    try
+    {
+      saveFavorites();
+    }
+    catch (const std::exception&)
+    {
+    }
+  }
+}
+
 std::string PresetLibrary::favoriteKey(const PresetEntry& e) const
 {
   if (e.path.empty())
@@ -194,45 +314,7 @@ bool PresetLibrary::ensureLayout()
   }
 
   // Presets saved by 0.5.0 lived in <root>/Presets: move them into User.
-  const fs::path legacy = root / "Presets";
-  if (fs::is_directory(legacy, ec))
-  {
-    std::vector<std::string> oldFavorites;
-    try
-    {
-      const auto j = nlohmann::json::parse(readTextFile(utf8FromPath(legacy / "favorites.json")));
-      for (const auto& f : j.value("favorites", nlohmann::json::array()))
-        if (f.is_string())
-          oldFavorites.push_back(f.get<std::string>());
-    }
-    catch (const std::exception&)
-    {
-    }
-    for (const auto& item : fs::directory_iterator(legacy, ec))
-    {
-      const fs::path target = root / kUserFolder / item.path().filename();
-      std::error_code ec2;
-      if (item.path().filename() == "favorites.json" || fs::exists(target, ec2))
-        continue;
-      fs::rename(item.path(), target, ec2);
-    }
-    fs::remove(legacy / "favorites.json", ec);
-    fs::remove(legacy, ec); // only if empty now
-    if (!oldFavorites.empty())
-    {
-      loadFavorites();
-      for (const auto& key : oldFavorites)
-        if (key.rfind("user:", 0) == 0)
-          mFavorites.push_back(std::string(kUserFolder) + "/" + key.substr(5));
-      try
-      {
-        saveFavorites();
-      }
-      catch (const std::exception&)
-      {
-      }
-    }
-  }
+  importFrom(mRoot);
 
   if (!fs::exists(pathFromUtf8(defaultPresetPath()), ec))
   {

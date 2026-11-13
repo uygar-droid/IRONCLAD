@@ -44,11 +44,24 @@ IRONCLAD is a VST3 plugin for **Windows 10/11 (64-bit)** and **macOS 13 or newer
 
 ## Presets and your files
 
-IRONCLAD creates its folder the first time it is opened:
+IRONCLAD keeps its presets in one folder:
 
 | | macOS | Windows |
 |---|---|---|
-| IRONCLAD folder | `~/Library/Application Support/IRONCLAD` | `%APPDATA%\IRONCLAD` |
+| IRONCLAD folder | `/Library/Audio/Presets/IRONCLAD` (next to other amp plugins' presets) | `%APPDATA%\IRONCLAD` |
+
+**macOS, one time only (until the installer of Milestone 8 does it):** `/Library/Audio/Presets` is
+a system folder, so IRONCLAD needs your permission to create its folder there. Quit REAPER, open
+Terminal and run (it asks for your Mac password):
+
+```
+sudo mkdir -p "/Library/Audio/Presets/IRONCLAD" && sudo chown -R "$USER" "/Library/Audio/Presets/IRONCLAD"
+```
+
+Then open REAPER and IRONCLAD: it fills the folder, and presets you saved before (in
+`~/Library/Application Support/IRONCLAD`) are moved there automatically, together with your
+Default, favourites and MIDI defaults. Without this step IRONCLAD keeps using
+`~/Library/Application Support/IRONCLAD` (in Finder: Go menu with ⌥ held → Library).
 
 ```
 IRONCLAD/

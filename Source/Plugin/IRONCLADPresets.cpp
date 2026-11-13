@@ -138,8 +138,12 @@ ironclad::PresetLibrary& IRONCLAD::Library()
 {
   if (!mLibrary)
   {
-    // Creates IRONCLAD/{IRONCLAD, Packs, User, Default.ironclad} on first use.
+    // Creates IRONCLAD/{IRONCLAD, Packs, User, Default.ironclad} on first use. When the shared
+    // folder (macOS: /Library/Audio/Presets/IRONCLAD) is in use, presets saved earlier in the
+    // per-user folder are moved into it first.
     mLibrary = std::make_unique<ironclad::PresetLibrary>(ironclad::userDataDir());
+    if (ironclad::userDataDir() != ironclad::perUserDataDir())
+      mLibrary->importFrom(ironclad::perUserDataDir());
     mLibrary->ensureLayout();
   }
   return *mLibrary;

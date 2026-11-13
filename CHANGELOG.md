@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased] — 0.5.2 (macOS preset folder next to other amp plugins)
+
+### Changed
+- macOS: the IRONCLAD folder is `/Library/Audio/Presets/IRONCLAD` when it exists and is
+  writable (one Terminal command creates it, see INSTALL.md; the installer will do it later).
+  Presets, packs, Default, favourites and MIDI defaults from
+  `~/Library/Application Support/IRONCLAD` are moved there automatically; nothing is overwritten.
+  Otherwise IRONCLAD keeps using the per-user folder. Windows is unchanged (`%APPDATA%\IRONCLAD`).
+
 ## [Unreleased] — 0.5.1 (preset folder layout)
 
 ### Changed
