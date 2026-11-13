@@ -72,6 +72,11 @@ the user (~60 % with 0.4.0) depends on the IR lengths used and on REAPER's buffe
 
 ## 5. Recorded results
 
+### 2026-11-13 — GitHub Actions run 43394437142 (0.5.1, preset folder layout)
+
+Windows x64 and macOS universal: built, `ironclad_tests` **82/82** (new: folder layout,
+factory files, packs, Default, 0.5.0 migration), Steinberg validator **47 passed, 0 failed**.
+
 ### 2026-11-13 — GitHub Actions run 43345267503, commit `830cf01` (M5, 0.5.0)
 
 Windows x64 and macOS universal: plugin built (incl. the new preset / MIDI code), `ironclad_tests`
