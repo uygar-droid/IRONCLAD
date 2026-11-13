@@ -161,8 +161,8 @@ fixed direction (upper left); the knob rotates under it. Layers, bottom to top:
 |---|---|---|
 | 1 | Base + drop shadow | static |
 | 2 | Knob body / pointer (chicken-head), no highlights | rotates with the value |
-| 3 | Pointer-edge highlight (thin white line on the pointer) | rotates with the value; **opacity follows a curve of the angle** (observed: strongest around values 2–5, and a second rise around 8–10) |
-| 4 | Light spot(s), screen-fixed: soft white blob where the light hits (strong main light upper left, optional weak side light right) | does **not** rotate and does not change opacity; drawn **only over the knob's own pixels** (draw layer 2 into an offscreen layer, then layer 4 with source-atop compositing). As the thick end of the pointer passes under it, the highlight appears to slide across it. |
+| 3 | Pointer highlight: an **oval white brush spot** on the pointer | rotates with the value; **opacity follows a curve of the angle**, strongest around values **2–5** and faded outside that range. (The brightening seen around 8–10 is *not* this layer: it is layer 4.) |
+| 4 | Light spot(s), screen-fixed: soft white blob where the light hits (strong main light upper left, optional weak side light right) | does **not** rotate and does not change opacity; drawn **only over the knob's own pixels** (draw layer 2 into an offscreen layer, then layer 4 with source-atop compositing). As the thick end of the pointer passes under it, the highlight appears to slide across it. **This is the brightening seen around values 8–10**: no opacity change, the lit area moves over the knob. |
 | 5 | Cap highlight (reflection on the round centre cap) | static |
 
 - Implementation: IGraphics layer (StartLayer / EndLayer) per knob, rotated bitmap draw, `IBlend`
