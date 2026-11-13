@@ -23,6 +23,12 @@ machine/runner, date and commit.
 | Effect chain (M4) | All effects off → bit-transparent; each effect switched on/off while playing → no step larger than 0.08 on a 0.3-amplitude sine; all 11 effects on with parameter changes for 2000 blocks → finite, **0 audio-thread allocations**; all effects at 44.1–192 kHz | M4 |
 | Test hygiene (M4) | All `doctest::Approx(...).epsilon(e)` checks now use `.scale(0)` (strictly relative). Doctest's default scale adds an absolute term, which had made some earlier checks looser than intended; re-running with strict tolerances exposed one test comparison bug and one real product deviation (plate RT60), both fixed. | M4 |
 | Convolver (0.4.1) | Equality with direct convolution extended to IR lengths at every stage boundary (511/512/513, 4095/4096/4097) and 20 000 / 48 000 taps, block sizes 1 / 333 / 4096 / random | 0.4.1 |
+| Presets / state (M5) | SHA-256 = FIPS 180-4 vectors (incl. 1 M × 'a', incremental, file); preset JSON round trip, non-ASCII names, unknown ids ignored, defaults for missing ids, clamping; damaged / foreign / newer-schema / schema-less files rejected with messages; DAW state M1 / v1 / v2 decoded from byte-exact legacy layouts (also after a host prefix); v3 round trip incl. MIDI map; truncated / corrupt / newer / null data → refused | M5 |
+| File resolution (M5) | Saved path; relative to the preset; moved into the library (found by name, hash-verified); moved and renamed (found by content); same-named different file not accepted; missing / empty / nonexistent roots → NotFound (no throw); paths with non-ASCII folders | M5 |
+| Preset library (M5) | Factory first; save into category; overwrite protection; empty name refused; duplicate naming; rename keeps favourite; favourites persist across instances; factory presets read-only; delete; damaged file listed but reports an error; refs saved with hash and relative path; Windows/macOS-safe names; 12 factory templates use valid ids and in-range values | M5 |
+| Undo (M5) | Coalescing within a gesture, separate steps later, undo/redo round trip, redo cleared by a new edit, 200-step cap | M5 |
+| MIDI (M5) | Learn; linear and log-taper parameter mapping; latching footswitch; toggle on rising edge only; actions on press only; re-learn moves the CC; JSON / data round trip; invalid CC / targets ignored; **0 allocations in the audio-thread path (learn included)** | M5 |
+| Engine (M5) | Volume pedal taper, 15 ms ramp, delay tail continues after the pedal closes; **preset transition: silence reached, no step for a +12 dB jump, new gain fully applied (blocks 1/64/512)**; input calibration equals the same gain on Amp Input (lstm.nam, 18.3 dBu) and is neutral at equal levels | M5 |
 | NAM Core | Loads example WaveNet (blocks 64/256/1024) and LSTM captures, output finite and non-silent; missing and malformed files throw (no crash) | M1 |
 
 ## 2. Plugin validation
@@ -42,6 +48,12 @@ machine/runner, date and commit.
 - [ ] Sample rates 44.1 / 48 / 96 kHz; buffer sizes 64 / 256 / 1024: no dropouts, no crash.
 - [ ] Offline render matches realtime playback.
 - [ ] Remove plugin while playing; undo; no crash.
+- [ ] (M5) Save a preset, change things, load it back; rename / duplicate / delete; favourites
+      survive a REAPER restart; factory templates keep the loaded capture and IRs.
+- [ ] (M5) Move a capture to another folder, load the preset: it is found (or named as missing).
+- [ ] (M5) Preset changes while playing: no clicks. Undo / redo of knobs, capture and preset loads.
+- [ ] (M5) MIDI learn: expression pedal → wah / volume, footswitch → effect on/off, Tap Tempo.
+- [ ] (M5) Projects saved with 0.4.x open with the same sound.
 
 ## 4. CPU benchmark (`ironclad_bench`, development container, Xeon 2.1 GHz, one core, 48 kHz)
 
@@ -59,6 +71,13 @@ Apple Silicon is considerably faster per core than this container; the REAPER fi
 the user (~60 % with 0.4.0) depends on the IR lengths used and on REAPER's buffer size.
 
 ## 5. Recorded results
+
+### 2026-11-13 — internal development container (Linux x86-64, GCC 13.3, Release), 0.5.0 engine
+
+`ironclad_tests`: **81 test cases, 498 198 assertions, all passed** (12 new M5 test cases in
+`TestPresets.cpp`, 2 in `TestEngine.cpp`, 1 in `TestAmp.cpp`). The plugin sources
+(`IRONCLAD.cpp`, `IRONCLADPresets.cpp`) were syntax-checked against the iPlug2 / VST3 SDK headers
+with stubbed macOS system headers (0 errors); they are compiled for real only by CI.
 
 ### 2026-11-12 — internal development container (Linux x86-64, GCC 13.3, Release)
 Not a product target; used only to exercise platform-independent engine code before CI exists.

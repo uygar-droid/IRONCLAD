@@ -279,14 +279,14 @@ TEST_CASE("Moved, renamed and missing files are found or reported, never fatal")
   fs::rename(dir.path / "Old" / "Lead.nam", dir.path / "Library" / "Amps" / "Lead.nam");
   auto r = resolveFile(ref, opt);
   CHECK(r.how == ResolvedFile::How::SameName);
-  CHECK(r.path == dir.str("Library/Amps/Lead.nam"));
+  CHECK(fs::equivalent(pathFromUtf8(r.path), dir.path / "Library" / "Amps" / "Lead.nam"));
 
   // Renamed as well: found by content.
   fs::rename(dir.path / "Library" / "Amps" / "Lead.nam", dir.path / "Library" / "Amps" / "Lead v2.NAM");
   writeFile(dir.str("Library/Decoy.nam"), "different content, same name test");
   r = resolveFile(ref, opt);
   CHECK(r.how == ResolvedFile::How::SameContent);
-  CHECK(r.path == dir.str("Library/Amps/Lead v2.NAM"));
+  CHECK(fs::equivalent(pathFromUtf8(r.path), dir.path / "Library" / "Amps" / "Lead v2.NAM"));
 
   // A same-named file with different content is not mistaken for it.
   writeFile(dir.str("Library/Lead.nam"), "another capture entirely");

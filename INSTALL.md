@@ -42,6 +42,31 @@ IRONCLAD is a VST3 plugin for **Windows 10/11 (64-bit)** and **macOS 13 or newer
 - Arm the track and enable input monitoring.
 - Use the smallest audio buffer your interface handles reliably (64–256 samples) for low latency.
 
+## Presets and your files
+
+IRONCLAD keeps its user data here (created on first use):
+
+| | macOS | Windows |
+|---|---|---|
+| User folder | `~/Library/Application Support/IRONCLAD` | `%APPDATA%\IRONCLAD` |
+| Presets | `…/IRONCLAD/Presets` (a sub-folder = a category) | `…\IRONCLAD\Presets` |
+| Suggested place for captures / IRs | `…/IRONCLAD/Captures`, `…/IRONCLAD/IRs` | `…\IRONCLAD\Captures`, `…\IRONCLAD\IRs` |
+
+Captures and IRs can live anywhere; a preset remembers each file's location **and** its content.
+If you move or rename a file, IRONCLAD looks for it next to the preset, in the folders above and
+in the folder you last browsed. Keeping your files under the IRONCLAD folder makes presets
+portable between computers: copy the whole `IRONCLAD` folder.
+
+## MIDI (expression pedal, footswitches)
+
+1. REAPER: a track's input is either audio or MIDI, so use a second track for the controller:
+   create a track, set its input to *Input: MIDI* → your controller (all channels), arm it and
+   turn monitoring on. Then add a **send** from that track to the guitar track (in the send,
+   set Audio to *None* and MIDI to *All*).
+2. Click **MIDI** → *Learn*, move the knob or switch in IRONCLAD, then move the pedal / press the
+   switch. Momentary footswitches: use *Learn on/off switch (toggles)*.
+3. *Save as default for new instances* keeps your controller setup for every new IRONCLAD.
+
 ## Updating to a newer build
 
 Quit your DAW completely first (macOS: ⌘Q). A DAW keeps an already-loaded plugin in memory,

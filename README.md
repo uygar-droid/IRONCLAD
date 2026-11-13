@@ -4,7 +4,7 @@ A guitar amplifier and effects **VST3** for **Windows x64** and **macOS** (Apple
 Neural Amp Modeler (`.nam`) capture loading, cabinet impulse responses, a full effects chain and
 a photorealistic amplifier interface.
 
-**Status:** Milestone 1 (foundation) — see [ROADMAP.md](ROADMAP.md). Not yet a usable amp plugin.
+**Status:** Milestone 5 (presets, state, undo, MIDI) in testing — NAM captures, dual-IR cabinet, 11 effects, presets and MIDI learn work; the photorealistic interface (Milestone 6) is not done yet. See [ROADMAP.md](ROADMAP.md).
 
 | Document | Contents |
 |---|---|

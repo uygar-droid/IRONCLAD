@@ -267,16 +267,46 @@ less aliasing than a naive clipper in the test case (measured in Milestone 4).
 - Host automation → `IParam` → engine atomic target; GUI edit → `IParam` → host notified.
   The GUI and host therefore always see the same value (standard iPlug2 behaviour).
 
-## 9. State and presets
+## 9. State, presets, undo, MIDI (implemented in Milestone 5)
 
-- **DAW session state** (`SerializeState`): a header (`"IRCL"`, format version) + UTF-8 JSON
-  payload, identical in content to a preset plus UI state. One codec for both, one set of tests.
-- **Preset files**: JSON, `"schema": N`, migrations `N→N+1` kept forever and tested.
-- External files (captures/IRs) are stored as:
-  `{ "name", "relative" (to the user library root), "absolute", "sha256", "size" }`.
-  Restore tries absolute → relative → search library by hash; if all fail the slot shows
-  "Missing: <name>" and the plugin passes audio safely (bypass that slot). Never a crash.
-- Undo/redo: command stack of parameter-change groups, on the UI thread only.
+All logic is engine-side and framework-independent (`Source/Presets/`, `Source/Midi/`), so it is
+unit-tested on its own; the plugin only forwards host calls and UI events.
+
+- **DAW session state** (`Presets/StateCodec`): `str "IRCL"`, `int32 version`, then for v3 one
+  JSON string: the current sound as a preset (parameters by stable id, capture / IR references),
+  the loaded preset's library path and modified flag, and the MIDI map (targets by stable id).
+  Earlier layouts are decoded byte-exactly: M1 (raw doubles), v1 (6 params + capture), v2
+  (counted params + capture + 2 IRs). Truncated, corrupt or newer data is refused (`-1`), so
+  the host keeps its defaults instead of a half-restored state.
+- **Preset files** (`Presets/PresetData`, `.ironclad`): JSON with `"format"`, `"schema": 1`
+  (newer schemas are refused with a message; the migration hook is in `presetFromJson`).
+  A parameter missing from a preset takes its default, so a preset always defines the complete
+  sound. Factory presets are compiled-in templates (`templateOnly`): they never touch the
+  loaded capture / IRs.
+- **External files** (`Presets/FileResolver`): `{ path, relative (to the preset file), file,
+  sha256, size }`. Resolution: saved path → relative to the preset → recursive search of the
+  library folders for the same name (verified by hash when known) → same size + hash. The search
+  is bounded (20 000 files). If nothing is found the original path is still requested, so the
+  amp/cab page shows "file not found", the previous capture keeps playing and the project keeps
+  the reference; the preset bar names the missing files. Never a crash. Hashes are computed once
+  per file on the UI thread (`RememberFileRef`); `SerializeState` never hashes.
+- **Library** (`Presets/PresetLibrary`): `<user data>/Presets/<Category>/<Name>.ironclad`,
+  favourites in `favorites.json`; writes are atomic (temp file + rename). File names are
+  sanitised for both Windows and macOS (reserved names, trailing dots, `<>:"/\|?*`).
+- **Preset switching** (`Engine::beginTransition`): the output fades out over 5 ms with
+  parameter targets frozen; when silent, the new targets are taken and the global gains snapped;
+  then it fades in over 5 ms. Captures and IRs change with their own 25 ms crossfades.
+- **Undo/redo** (`Presets/UndoStack`, UI thread): complete snapshots (all parameters + capture +
+  IR paths), 200 steps. A change from the editor (`OnParamChangeUI`, source `kUI`) records the
+  previous snapshot; changes to the same parameter within 1 s are one step (a knob drag). Host
+  automation, MIDI and the plugin's own changes are not undo steps.
+- **MIDI** (`Midi/MidiMap`): 128 atomic slots (CC → parameter or action). `handleCc` runs on the
+  audio thread, lock- and allocation-free: learn, absolute values (with the parameter's host
+  taper), toggle on rising edge, actions on press. The engine gets the value immediately; an
+  SPSC queue carries it to `OnIdle`, which updates the host parameter (begin/perform/end edit),
+  the editor and tap tempo / preset stepping. CCs reach the plugin through iPlug2's VST3 MIDI
+  mapping (16 channels, omni). VST3 has no MIDI Program Change for effects; Next / Previous
+  preset actions replace it.
 
 ## 10. GUI
 

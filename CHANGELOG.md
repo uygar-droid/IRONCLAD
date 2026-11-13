@@ -1,5 +1,34 @@
 # Changelog
 
+## [Unreleased] — 0.5.0 (Milestone 5: presets, state, undo, MIDI)
+
+### Added
+- Preset bar at the top: previous / next, preset browser (Favourites, Factory templates,
+  My presets by category), FAV, SAVE, … (Save As, Rename, Duplicate, Delete, Init, show
+  folder), UNDO, REDO, MIDI. `*` marks unsaved changes.
+- User presets are `.ironclad` JSON files in `~/Library/Application Support/IRONCLAD/Presets`
+  (macOS) or `%APPDATA%\IRONCLAD\Presets` (Windows); a sub-folder is a category. Type
+  `Category / Name` in Save As to file a preset in a category.
+- 12 factory templates (Clean, Crunch, Lead, High Gain, Ambient). They set effects and levels
+  only, so your own capture and IRs stay loaded.
+- Presets remember captures and IRs with their content hash: a file that was moved or renamed
+  is found again (next to the preset, or in IRONCLAD's Captures / IRs / Presets folders, or in
+  the folder last browsed). A file that cannot be found is reported; loading never fails.
+- Click-free preset changes (short fade-out / fade-in).
+- Undo / redo for knob and switch changes, capture / IR loads and preset loads.
+- MIDI learn (MIDI button): any knob or switch, momentary-footswitch toggle mode, Tap Tempo,
+  Next / Previous preset; any MIDI channel. Assignments are saved with the project and can be
+  saved as the default for new instances.
+- Volume Pedal and Input Calibration (Interface Level, dBu) on the AMP page.
+
+### Changed
+- Project state format v3 (JSON). Projects saved with 0.1–0.4 still open.
+- The plugin now has a MIDI input (needed for MIDI learn).
+
+### Not possible
+- MIDI Program Change cannot select presets: VST3 does not deliver Program Change to plugins
+  as MIDI. Use a CC assigned to Next / Previous preset instead.
+
 ## [Unreleased] — 0.4.1 (performance)
 
 ### Changed

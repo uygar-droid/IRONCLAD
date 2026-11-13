@@ -7,7 +7,7 @@ Status legend: ✅ implemented & tested · 🟡 implemented, not fully tested ·
 real DAW on **Windows x64** and **macOS (Apple Silicon + Intel)**, delivered as compiled binaries
 with source, build scripts, documentation and an installation guide. Linux and AU are out of scope.
 
-Last updated: 2026-11-12.
+Last updated: 2026-11-13.
 
 | # | Milestone | Status | Deliverable |
 |---|---|---|---|
@@ -16,7 +16,7 @@ Last updated: 2026-11-12.
 | 2 | NAM integration | ✅ CI + REAPER (macOS) verified; Windows host test pending | VST3 that loads and plays `.nam` captures |
 | 3 | Cabinet engine | ✅ CI + REAPER (macOS) verified; Windows host test pending | + dual-IR zero-latency cabinet |
 | 4 | Core effects | ✅ CI + REAPER (macOS) verified; CPU profiling follow-up | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
-| 5 | Presets, state, automation, MIDI | ⬜ | Reliable DAW-integrated plugin |
+| 5 | Presets, state, automation, MIDI | 🟡 engine unit-tested; CI build + REAPER test pending | Reliable DAW-integrated plugin |
 | 6 | Graphical interface | ⬜ ⛔ Blender not available in this container | The photorealistic IRONCLAD UI |
 | 7 | Advanced features | ⬜ | Remaining effects, routing, optimisation |
 | 8 | Release | ⬜ | **Release VST3 binaries for Windows and macOS**, installation guide, release notes |
@@ -67,7 +67,7 @@ Acceptance criteria (shown with real output):
 | Output normalisation to −18 dB loudness (when the capture provides loudness) | ✅ unit-tested |
 | Gain staging params: Amp On, Amp Input, Amp Output, Normalize | ✅ engine-tested |
 | Plugin: LOAD CAPTURE / CLEAR, info + error display, capture path saved in the project | ✅ REAPER (macOS, user, 2026-11-12) |
-| Input calibration (interface dBu ↔ capture `input_level_dbu`) | ⬜ moved to M5 (needs a per-user setting) |
+| Input calibration (interface dBu ↔ capture `input_level_dbu`) | ✅ unit-tested (0.5.0, see Milestone 5) |
 | Capture browser (folder library view) | ⬜ moved to M6 (part of the final UI); M2 uses the OS file dialog |
 
 Real-host gate: load several community captures in REAPER, play guitar, switch captures during
@@ -116,10 +116,23 @@ phaser, flanger, tremolo, vibrato, rotary, envelope filter, tape/stereo delay, s
 reorderable routing.
 
 ## Milestone 5 — Presets, state, automation, MIDI
-JSON schema v1 + migrations, missing-file resolver, factory/user libraries, categories,
-favourites, rename/duplicate/delete, undo/redo, MIDI learn (CC → parameter, expression for
-wah/volume, tap tempo). Real-host gate: automation lanes, project save → close → reopen
-restores everything in REAPER.
+
+| Task | Status |
+|---|---|
+| DAW state v3 (JSON, parameters and MIDI targets by stable id); M1 / v1 / v2 projects still open | ✅ unit-tested (byte-exact legacy layouts, truncated / corrupt / newer data refused) |
+| Preset files (`.ironclad`, JSON `schema` 1 + migration hook); unknown ids ignored, missing ids → default, out-of-range clamped | ✅ unit-tested |
+| Capture / IR references: path + path relative to the preset + file name + SHA-256 + size | ✅ unit-tested (SHA-256 against the FIPS 180-4 vectors) |
+| Missing-file resolver: saved path → next to the preset → library search by name (hash-verified) → by content; not found → message, never fatal | ✅ unit-tested |
+| Preset library: user folder, categories (sub-folders), save / save as / overwrite confirm / rename / duplicate / delete, favourites, safe file names (Windows + macOS) | ✅ unit-tested |
+| 12 factory templates (effect / gain settings, no captures or IRs — the user's own stay loaded) | ✅ unit-tested (ids and ranges valid) |
+| Click-free preset switching (5 ms fade-out, apply while silent, 5 ms fade-in) | ✅ unit-tested (no step at a +12 dB jump, blocks 1/64/512) |
+| Undo / redo (complete snapshots, knob gestures coalesced, 200 steps; parameters, captures, IRs, preset loads) | ✅ unit-tested (stack) · plugin glue 🟡 REAPER test pending |
+| MIDI learn: CC → any parameter (host taper), latching or toggling footswitches, Tap Tempo / Next / Previous preset; omni (16 channels); default map for new instances | ✅ unit-tested (incl. 0 allocations on the audio thread) · plugin 🟡 REAPER test pending |
+| Volume pedal parameter (audio taper, before delay / reverb so tails ring out) | ✅ unit-tested |
+| Input calibration (Interface Level dBu vs the capture's recorded input level) | ✅ unit-tested (equals the same gain on Amp Input) |
+| Top preset bar (◀ name ▶, FAV, SAVE, …, UNDO, REDO, MIDI), status line | 🟡 compiles (syntax-checked); CI build + REAPER test pending |
+| MIDI Program Change → preset | ⛔ not available: VST3 does not pass Program Change to plugins as MIDI (hosts map it to a program-list parameter). Next / Previous preset by CC is provided instead |
+| Real-host gate: automation lanes, MIDI learn with a controller, preset save → close → reopen restores everything, missing-file message | ⬜ user test in REAPER |
 
 ## Milestone 6 — Graphical interface
 Blender pipeline (render scripts, filmstrip packer), photorealistic amp head, STOMP / AMP / CAB /
