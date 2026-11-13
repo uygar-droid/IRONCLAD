@@ -147,5 +147,12 @@ multi-capture research for authentic tone controls.
 ## Milestone 8 — Release
 Full regression; Release VST3 binaries for Windows x64 and macOS universal attached to a
 GitHub Release; Windows installer (Inno Setup) and macOS pkg; installation guide; release notes.
+**Installer must also create the IRONCLAD folders** (requested by the product owner, 2026-11-13):
+per-user `Presets`, `Captures`, `IRs` (macOS `~/Library/Application Support/IRONCLAD/…` for the
+logged-in user via the pkg postinstall script; Windows `%APPDATA%\IRONCLAD\…`), and a shared,
+read-only `Factory Presets` folder (macOS `/Library/Application Support/IRONCLAD/`, Windows
+`%PROGRAMDATA%\IRONCLAD\`) that the plugin reads in addition to its built-in templates, so
+preset packs can be shipped as files. Existing user files are never overwritten; uninstall keeps
+user folders.
 Signing: Windows code-signing certificate (recommended) and Apple Developer ID + notarisation
 (required to avoid Gatekeeper warnings) — both must be provided by the product owner.
