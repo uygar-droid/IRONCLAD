@@ -204,6 +204,8 @@ bottom in the temporary UI) selects **five** pages, in signal order:
 
 ### M6 build phases (agreed 2026-11-13)
 
+The art list for each phase is in `docs/ART-M6.x.md` (phase 6.1: [docs/ART-M6.1.md](docs/ART-M6.1.md)).
+
 M6 is built and tested in **five phases, in this order** (not in signal order). Each phase ends
 with a CI build and a REAPER test by the owner before the next starts.
 
