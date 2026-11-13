@@ -179,8 +179,8 @@ fixed direction (upper left); the knob rotates under it. Layers, bottom to top:
   the look without a rebuild of the code (reload on editor open).
 - **Filmstrips** (64–128 frames, from Blender / KnobMan) are supported as an alternative knob
   type for art made that way.
-- First step of M6: **one prototype knob** with placeholder art showing all five layers and the
-  tunable curves, tested by the owner in REAPER, before the full interface is drawn.
+- First step of M6 (phase 6.1): **one prototype knob** with placeholder art showing all five
+  layers and the tunable curves, tested by the owner in REAPER, before the full interface is drawn.
 
 **Page navigation (agreed 2026-11-13).** An icon bar at the **top** of the editor (it is at the
 bottom in the temporary UI) selects **five** pages, in signal order:
@@ -201,6 +201,38 @@ bottom in the temporary UI) selects **five** pages, in signal order:
   If the owner wants a different selected look, a separate "selected" icon per page.
 - The bar shares the top area with the M5 preset bar; the layout sheet must place both.
 - Original icons only (the owner's reference screenshot is for layout, not to copy).
+
+### M6 build phases (agreed 2026-11-13)
+
+M6 is built and tested in **five phases, in this order** (not in signal order). Each phase ends
+with a CI build and a REAPER test by the owner before the next starts.
+
+The owner supplied reference screenshots of a commercial amp plugin for every page. They are
+**layout references only**: IRONCLAD takes the arrangement (what goes where, proportions,
+grouping) and **not** the artwork, product designs, names or logos; the result must not be a
+clone. The screenshots are third-party copyrighted material and are **not stored in this public
+repository**; the layout notes below are written from them.
+
+**Shared frame (built in phase 6.1, used by every page):**
+- Top: the five page icons, centred; a dot under the selected one.
+- Header strip under it, full width: **Input** knob + input meter (left edge), **Gate** (on/off
+  switch + threshold knob), the **preset bar** in the centre (← → arrows, Delete / Save /
+  Save As… / ⋮ menu, wide preset-name field with `*` when modified and a drop-down browser),
+  **Output** knob + output meter (right edge). Knobs here are flat vector style (arc + pointer +
+  value below), not photorealistic.
+- Footer bar: Tuner · MIDI · Tap + BPM · Settings on the left; version / credit and the window
+  resize handle on the right.
+- Reference features IRONCLAD does **not** have (transpose, doubler, mono/stereo input mode,
+  metronome, the reference's cabinet/microphone picker) are not in scope; their space is used for
+  IRONCLAD's own controls or left out. Adding any of them is a separate decision.
+
+| Phase | Page | Reference layout | IRONCLAD controls to place | Open questions |
+|---|---|---|---|---|
+| **6.1** | **Amp** (+ shared frame + prototype knob) | A wide, photorealistic amp head fills the page: textured cabinet with handle, a decorative front grille with glowing tubes behind it, a light control panel along the bottom with a row of chicken-head knobs (numbered 0–10 scales, divider lines between groups), input jack with cable on the left, a red rocker power switch on the right. The top of the cabinet below is visible under the head. | Capture: name, Load / Clear, metadata and status (needs a place on the head, e.g. a display plate on the panel); Amp Input, Amp Output, Normalize, Input Calibration + Interface Level, Volume Pedal; Amp On = the power switch. The layered chicken-head knob (spec above) is built here first. | Where the capture display goes; whether the tubes glow with signal level. |
+| **6.2** | **Cab** | The amp head, smaller, sitting on top of a large cabinet front (grille cloth, speaker outlines, corner protectors); two side columns, one per IR slot: ← → arrows and a name drop-down with a power button on top, then knobs with value + label under each, a phase button at the bottom. | Per slot (A left, B right): IR name / browse / clear, On, Level, Pan, Invert (phase button), waveform; between or below: IR Blend, Cab HPF, Cab LPF. | Whether the waveform thumbnails stay visible; where Blend / HPF / LPF go (the reference has no shared controls). |
+| **6.3** | **Pre-amp pedals** | A row of four photorealistic stomp boxes side by side, each its own colour: knobs with dotted scales, a mini toggle between them, a status LED, the pedal name in large letters, in/out arrows, jack sockets on the sides, a metal footswitch at the bottom. | Seven pre-amp effects: Gate (also in the header), Compressor (threshold, ratio, attack, release, makeup, mix), Boost (gain, bright), Overdrive / Distortion / Fuzz (drive/fuzz, tone, level), Wah (position, resonance, mix — drawn as a wah pedal); each with its footswitch = On. | Seven pedals do not fit in one row of four: two rows, scrolling, or a smaller pedal size. Whether Gate stays only in the header. |
+| **6.4** | **EQ** | A rack-style graphic equaliser unit (dark brushed metal, feet): a big HPF knob on the left with a power toggle, nine vertical sliders with glowing caps (dB value above, frequency below), a big LPF knob on the right with an LED; a two-way switch above the unit. | Current EQ: Bass, Mid, Mid Freq, Treble, Level, On (a parametric 3-band EQ). | **DSP decision needed:** the reference is a 9-band graphic EQ with HPF/LPF. Either keep IRONCLAD's 3-band EQ (draw it as sliders/knobs on a rack unit) or add a graphic EQ in M7 and draw that. |
+| **6.5** | **Post FX** | A large delay pedal (two footswitches: engage and tap tempo, a green LCD showing sync/division, BPM and ping-pong state, two mini toggles for sync and ping-pong, six knobs incl. low/high cut) next to a reverb pedal (four knobs, LED, footswitch). | Chorus (rate, depth, mix); Delay (type digital/analog/ping-pong, time, sync, division, feedback, mix, low cut, high cut; tap tempo footswitch; the LCD shows division/time and BPM); Reverb (type room/hall/plate, decay, pre-delay, damping, mix). | Where Chorus goes (the reference page has two pedals; IRONCLAD has three). |
 
 ### Other M6 work
 - The five pages above with the final art; preset bar restyled (functions from M5 stay as they
