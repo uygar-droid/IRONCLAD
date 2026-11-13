@@ -80,6 +80,9 @@ Not a product target; used only to exercise platform-independent engine code bef
 Earlier runs of the same day found and fixed two CI-script defects (wrong `lipo` argument
 order; VST3-SDK cache restored before submodules). No product-code defect was found by CI.
 
+### 2026-11-13 — GitHub Actions run 43338973432 (0.4.1)
+Windows x64 and macOS universal: build ✅, `ironclad_tests` 66/66 ✅, Steinberg validator 47/0 ✅.
+
 ### 2026-11-13 — Real host: REAPER on the user's Mac mini, 0.4.0 from run 43317318965
 Executed by the user with a real guitar:
 - ✅ Project saved with 0.3.0 opens; capture, IRs and settings restored.
