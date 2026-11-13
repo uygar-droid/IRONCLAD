@@ -64,6 +64,17 @@ Not a product target; used only to exercise platform-independent engine code bef
 Earlier runs of the same day found and fixed two CI-script defects (wrong `lipo` argument
 order; VST3-SDK cache restored before submodules). No product-code defect was found by CI.
 
+### 2026-11-13 — Real host: REAPER on the user's Mac mini, 0.4.0 from run 43317318965
+Executed by the user with a real guitar:
+- ✅ Project saved with 0.3.0 opens; capture, IRs and settings restored.
+- ✅ STOMP / AMP / CAB / POST FX page switching.
+- ✅ Every STOMP pedal works and sounds plausible; no clicks when switching on/off.
+- ✅ Delay with host tempo, Sync and Division; TAP works.
+- ✅ Reverb type changes while playing are clean.
+- ✅ Effect parameters record and play back as REAPER automation.
+- ⚠ CPU: about 60 % in REAPER's FX CPU display with every effect on (user reports this is close
+  to a Neural DSP plugin on the same machine). Profiling follow-up below.
+
 ### 2026-11-13 — GitHub Actions run 43317318965, commit `2518a16` (M4, 0.4.0)
 | | Windows x64 | macOS universal (Intel runner) |
 |---|---|---|

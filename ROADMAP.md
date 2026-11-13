@@ -15,7 +15,7 @@ Last updated: 2026-11-12.
 | 1 | Foundation | ✅ CI + REAPER (macOS) verified; Windows host test pending | CI-built, validated, loadable VST3 (Win + macOS) with smoothed I/O gain |
 | 2 | NAM integration | ✅ CI + REAPER (macOS) verified; Windows host test pending | VST3 that loads and plays `.nam` captures |
 | 3 | Cabinet engine | ✅ CI + REAPER (macOS) verified; Windows host test pending | + dual-IR zero-latency cabinet |
-| 4 | Core effects | 🟡 CI ✅ (both OSes); REAPER check pending | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
+| 4 | Core effects | ✅ CI + REAPER (macOS) verified; CPU profiling follow-up | + gate, comp, drives, EQ, chorus, delay, reverb, wah |
 | 5 | Presets, state, automation, MIDI | ⬜ | Reliable DAW-integrated plugin |
 | 6 | Graphical interface | ⬜ ⛔ Blender not available in this container | The photorealistic IRONCLAD UI |
 | 7 | Advanced features | ⬜ | Remaining effects, routing, optimisation |
@@ -109,7 +109,7 @@ Fixed serial chain (spec §5): Gate → Compressor → Boost → Overdrive → D
 | Chorus | stereo, cubic-interpolated modulated delays | ✅ unit-tested |
 | Delay | Digital / Analog / Ping-Pong, ms or host-synced divisions, tap tempo, feedback filters, glide | ✅ unit-tested (echo timing exact, feedback within 2 %) |
 | Reverb | 8-line FDN, Room / Hall / Plate, decay, pre-delay, damping, mix | ✅ unit-tested (RT60 within 10 % of setting, stable at 10 s, click-free type change) |
-| Editor pages STOMP / AMP / CAB / POST FX, TAP button | — | 🟡 CI + REAPER check pending |
+| Editor pages STOMP / AMP / CAB / POST FX, TAP button | — | ✅ REAPER (macOS, user, 2026-11-13) |
 
 Moved to Milestone 7 (as planned in the spec): octaver, pitch shifter, parametric/graphic EQ,
 phaser, flanger, tremolo, vibrato, rotary, envelope filter, tape/stereo delay, spring reverb,
